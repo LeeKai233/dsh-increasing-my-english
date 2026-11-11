@@ -50,8 +50,8 @@
     "access": "public"
   },
   "scripts": {
-    "test": "node --test tests/",
-    "check": "node --check index.js && node --check client.js && node --test tests/",
+    "test": "node --test",
+    "check": "node --check index.js && node --check client.js && node --test",
     "prepublishOnly": "npm run check"
   },
   "dsh": {

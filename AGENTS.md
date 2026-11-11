@@ -22,7 +22,7 @@ DSH 持久插件「英语精读」：把播客录音用百炼 `bl speech recogni
 ```
 index.js            export name / inject / apply(ctx)：只做组装
 host/config.js      默认配置、校验、合并
-host/paths.js       工作区路径校验、安全删除、文件名分配
+host/paths.js       工作区路径校验、安全删除、文件名分配、DomainError/fail 领域错误原语
 host/json-store.js  原子写、损坏备份、串行写锁、vocab/cache 读写
 host/text.js        实体解码、HTML/Markdown/TeX 清洗、段落切分
 host/pdf.js         pdftotext -bbox 解析、行分组、PDF 渲染（poppler 预检）
@@ -30,7 +30,7 @@ host/transcript.js  文稿归一化、合并、列表、导入、删除
 host/asr.js         转写任务状态机、落盘、恢复、进程树取消
 host/lookup.js      查词提示词、ds/bl 后端、结果归一化、缓存、整句翻译
 host/vocab.js       词条规范化（唯一实现）、增删改查、Markdown 导出
-host/env.js         环境自检（bl / poppler / 工作区）
+host/env.js         环境自检（bl / poppler / 工作区）、唯一子进程 runner（StringDecoder、进程树 kill）
 host/api.js         action 分发表 + HTTP 网关（校验、限流、错误码、脱敏）
 host/tools.js       两个 agent 工具的注册、schema、render
 client.js           单文件浏览器 bundle（见下方分区）
@@ -60,14 +60,14 @@ tests/              node --test（零依赖）
 - 改 Host：DSH 重启后生效（桌面版退出重开；CLI/`dsh web` 重启进程）。
 - 改 Client：刷新页面即可（bundle 按包解析，内容变化后页面重新拉取）。
 - 改 `package.json` 的 `dsh` 清单或 `cordis.patch.yml`：需要重启 DSH。
-- 自检：`npm run check`（`node --check` 两个入口 + `node --test tests/`）。
+- 自检：`npm run check`（`node --check` 两个入口 + `node --test` 自动发现 `tests/*.test.mjs`；需要 Node 20+）。
 
 ## 冻结契约（Host ↔ Client ↔ 工具）
 
 ### HTTP
 
 `POST /dsh-english/api`，请求头 `content-type: application/json` + `x-english-practice: 1`。
-鉴权：仅回环地址 + `Origin`/`Host` 为本地 + 会话必须在线。请求体上限 32MB（各 action 另有上限），超时 60s，限流 30 req/s（突发 60）。
+鉴权：仅回环地址 + `Origin`/`Host` 为本地 + 会话必须在线。请求体上限 32MB（各 action 另有上限），网关超时默认 60s、`transcripts.import` 300s（覆盖 pdftoppm 180s + pdftotext 120s，客户端预算必须同步），限流 30 req/s（突发 60）。
 
 请求：`{ action: string, sessionId: string, payload: object }`
 
@@ -104,13 +104,14 @@ lookup/failed vocab/invalid-entry vocab/not-found job/not-found job/failed
 | `vocab.remove` | `{ids[]}` | `{removed}` |
 | `vocab.enrich` | `{id}` | `{entry}` |
 | `transcribe` | `{audio, speakers?, model?, language?}` | `{jobId,transcript}` |
-| `job` | `{id}` | `{jobId,state:'queued'|'running'|'done'|'failed'|'missing',transcript?,error?,warnings?,segments?,speakers?,durationMs?,heartbeatAt?}` |
+| `job` | `{id}` | `{jobId,state:'queued'|'running'|'done'|'failed',transcript?,error?,warnings?,segments?,speakers?,durationMs?,heartbeatAt?}`；未知 id 直接 404 + `job/not-found` |
 | `env.check`（新增） | `{}` | `{workspace:{root,writable,transcripts,vocab,recordings}, bl:{present,version?,authenticated?,message?}, pdf:{present,tool,message?}, warnings:string[]}` |
 
 ### agent 工具
 
 - `english_transcribe { audio, speakers?, model?, language? }` → `{ok,jobId,transcript,segments,speakers,durationMs,model,warnings,state,error?}`；
   失败必须带可操作信息（bl 缺失/未登录时给安装或登录命令）。
+- 工具注册只接受静态 `timeoutMs`：注册时取默认值（`asr.toolTimeoutMinutes` 默认 32 分钟），工作区配置载入后更新已注册定义对象上的 `timeoutMs`（宿主每次调用读取该定义）。
 - `english_vocab { action: list|lookup|add|update|enrich|remove|export, ... }`；
   `output.schema` 必须覆盖 render 实际读取的 `result/words/sentences/removed/updated/entries/total/pending/path/duplicate`。
 
