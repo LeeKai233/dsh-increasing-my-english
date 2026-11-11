@@ -1,0 +1,87 @@
+{
+  "schemaVersion": "1.1",
+  "id": "dsh-increasing-my-english",
+  "name": "dsh-increasing-my-english",
+  "version": "0.1.0",
+  "description": {
+    "zh": "把播客录音转成分角色文稿在右侧边栏精读，Ctrl 划词查词并存进带音标、释义、词形与词源的生词本。",
+    "en": "Speaker-diarized podcast transcripts in the right sidebar, Ctrl word lookup, and a wordbook with phonetics, meanings, word forms and etymology."
+  },
+  "category": "other",
+  "keywords": [
+    "dsh",
+    "english",
+    "reading",
+    "vocabulary",
+    "podcast",
+    "transcript",
+    "bailian",
+    "pdf"
+  ],
+  "scope": {
+    "does": [
+      "把播客录音用百炼 CLI 转成分角色文稿并在 DSH 右侧边栏阅读",
+      "Ctrl 划词查词，维护带音标、释义、例句、词形与词源的生词本",
+      "导入 PDF/文本并支持划词查词与环境自检"
+    ],
+    "doesNot": [
+      "不下载、剪辑、托管或播放音频，不替代播放器",
+      "不做口语评测、考试题库、云端同步或账号体系",
+      "不收集遥测，也不修改工作区以外由插件管理的数据"
+    ]
+  },
+  "install": {
+    "profile": "web",
+    "spec": "dsh-increasing-my-english"
+  },
+  "runtime": {
+    "platforms": [
+      "web"
+    ],
+    "dsh": ">=0.2.0"
+  },
+  "patches": {
+    "bundle": "cordis.patch.yml",
+    "insertIds": [
+      "english-practice"
+    ],
+    "namespaces": [
+      "englishPractice"
+    ],
+    "slots": [
+      "sidebar.right.pane.tab",
+      "conversation.session.header.utilities"
+    ]
+  },
+  "capabilities": {
+    "network": true,
+    "telemetry": false,
+    "permissions": [
+      "process-spawn",
+      "workspace-write"
+    ]
+  },
+  "deps": [],
+  "perf": {
+    "polls": {
+      "transcripts.list": 4000,
+      "job": 1500
+    },
+    "timers": 2
+  },
+  "cost": {
+    "license": "MIT",
+    "paid": false,
+    "paidTiers": []
+  },
+  "links": {
+    "repo": "https://github.com/LeeKai233/dsh-increasing-my-english",
+    "npm": "https://www.npmjs.com/package/dsh-increasing-my-english"
+  },
+  "maintainers": [
+    {
+      "name": "LeeKai233",
+      "contact": "leslie.ttpan@gmail.com"
+    }
+  ]
+}
