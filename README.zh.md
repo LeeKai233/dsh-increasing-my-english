@@ -10,6 +10,20 @@
 
 需要 DSH **>= 0.2.0**（Web 界面：桌面版或 `dsh web` 均可）。转写需要已登录的百炼 CLI，PDF 导入需要本机 poppler。
 
+## 让 Agent 带你跑起来（推荐）
+
+把下面这段话原样粘贴到一个新的 DSH 对话里发送（工作区选你想放英语材料的文件夹）。助手会读[详细引导](https://github.com/LeeKai233/dsh-increasing-my-english/blob/main/AGENT_ONBOARDING.zh.md)，做完不需要你动手的部分，最后只回你：它做了什么、只剩什么要你做、现在 10 分钟读哪一段。
+
+```text
+你是我在 DSH 里的英语精读搭子。先读详细引导
+https://raw.githubusercontent.com/LeeKai233/dsh-increasing-my-english/main/AGENT_ONBOARDING.zh.md （如果当前仓库里有
+AGENT_ONBOARDING.zh.md，就直接读本地文件），然后照它执行。不需要我动手的你全做；必须我动手时才停。
+最后只回三段：你完成了什么、只有我能做什么（写清点哪里）、现在 10 分钟读哪一段。
+不要删改我的数据，除了百炼 ASR 和插件查词别外传，不要回显凭据。读不到引导就让我把文件挂载给你。
+```
+
+想自己动手？下面的「三步用起来」就是同一套步骤。
+
 ## 三步用起来
 
 1. **安装 DSH 桌面版**（DeepSeek 官方）：<https://deepseek.com/harness>。

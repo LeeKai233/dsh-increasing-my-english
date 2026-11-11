@@ -10,6 +10,22 @@ Transcribe podcast recordings into speaker-diarized transcripts with the Bailian
 
 Requires DSH **>= 0.2.0** (web UI: the desktop app or `dsh web`). Transcription needs a logged-in Bailian CLI; PDF import needs poppler.
 
+## Let an agent set it up (recommended)
+
+Copy this paragraph into a new DSH conversation opened in the folder where you want your English material to live. The agent reads the [detailed setup guide](https://github.com/LeeKai233/dsh-increasing-my-english/blob/main/AGENT_ONBOARDING.md), does everything that does not need your hands, and replies with what is left for you and a 10-minute reading task.
+
+```text
+You're my English intensive-reading setup partner inside DSH. Read the detailed guide at
+https://raw.githubusercontent.com/LeeKai233/dsh-increasing-my-english/main/AGENT_ONBOARDING.md — or
+AGENT_ONBOARDING.md in this repository if it is mounted here — and follow it. Do everything that does not need my hands; stop
+only for clicks, logins, a restart, or approvals. Then reply with three short sections: what you finished,
+what only I can do (with the exact place to click), and one 10-minute reading task to start with. Do not delete or rewrite my
+data, do not send content anywhere except the Bailian ASR call and the plugin's own lookup, and never
+echo credentials. If you cannot read the guide, ask me to attach it.
+```
+
+Prefer to do it by hand? The three steps below walk through the same setup.
+
 ## Get started in 3 steps
 
 1. **Install the DSH desktop app** (DeepSeek official): <https://deepseek.com/harness>.

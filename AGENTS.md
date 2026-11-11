@@ -61,6 +61,7 @@ tests/              node --test（零依赖）
 - 改 Client：刷新页面即可（bundle 按包解析，内容变化后页面重新拉取）。
 - 改 `package.json` 的 `dsh` 清单或 `cordis.patch.yml`：需要重启 DSH。
 - 自检：`npm run check`（`node --check` 两个入口 + `node --test` 自动发现 `tests/*.test.mjs`；需要 Node 20+）。
+- README 开头的精简提示词与 `AGENT_ONBOARDING.md` / `AGENT_ONBOARDING.zh.md` 是对外契约：工具名、动作、命令、默认目录必须与实现一致；改这些时同步更新 `README.md`、`README.zh.md`、`AGENT_ONBOARDING.md`、`AGENT_ONBOARDING.zh.md`。
 
 ## 冻结契约（Host ↔ Client ↔ 工具）
 
