@@ -3,7 +3,28 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Podcast transcript reader and wordbook in the right side bar",
+  "description": "English intensive reading for DSH: speaker-diarized podcast transcripts, Ctrl word lookup, and a wordbook with phonetics, meanings, word forms and etymology.",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "english",
+    "reading",
+    "vocabulary",
+    "podcast",
+    "transcript"
+  ],
+  "license": "MIT",
+  "author": "LeeKai233 <leslie.ttpan@gmail.com>",
+  "homepage": "https://github.com/LeeKai233/dsh-increasing-my-english#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LeeKai233/dsh-increasing-my-english.git"
+  },
+  "bugs": {
+    "url": "https://github.com/LeeKai233/dsh-increasing-my-english/issues"
+  },
+  "main": "index.js",
   "exports": {
     ".": "./index.js",
     "./client": "./client.js",
@@ -12,12 +33,27 @@
   },
   "files": [
     "index.js",
+    "host/",
     "client.js",
     "cordis.patch.yml",
     "locale/*.json",
     "icon.svg",
-    "README.md"
+    "assets/",
+    "README.md",
+    "README.zh.md",
+    "CHANGELOG.md"
   ],
+  "engines": {
+    "dsh": ">=0.2.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "test": "node --test tests/",
+    "check": "node --check index.js && node --check client.js && node --test tests/",
+    "prepublishOnly": "npm run check"
+  },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
