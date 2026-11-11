@@ -1,5 +1,5 @@
 window.__ModuleLoader__.load({
-  id: '@local/dsh-english-practice',
+  id: 'dsh-increasing-my-english',
   factory(require) {
     const module = { exports: {} }
     const exports = module.exports
@@ -20,7 +20,7 @@ window.__ModuleLoader__.load({
     //   FONT_STORAGE_PREFIX / PDF_ZOOM_STORAGE_KEY — localStorage 键
     //   ENV_PLATFORM / ENV_COMMANDS — 环境自检卡里可一键复制的命令（poppler 按平台切换）
     // ═══════════════════════════════════════════════════════════════════
-    const PKG = '@local/dsh-english-practice'
+    const PKG = 'dsh-increasing-my-english'
     const NS = 'englishPractice'
     const KIND = 'english-reader'
     const ID = 'english-practice'

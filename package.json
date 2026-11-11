@@ -1,7 +1,6 @@
 {
-  "name": "@local/dsh-english-practice",
+  "name": "dsh-increasing-my-english",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
   "description": "English intensive reading for DSH: speaker-diarized podcast transcripts, Ctrl word lookup, and a wordbook with phonetics, meanings, word forms and etymology.",
   "keywords": [

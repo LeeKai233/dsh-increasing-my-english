@@ -14,8 +14,8 @@ DSH 持久插件「英语精读」：把播客录音用百炼 `bl speech recogni
 3. **数据格式冻结**（`version: 1`）：`vocab/vocabulary.json`、`transcripts/*.json`、`transcripts/.jobs/*.json`、
    `.dsh-english/{config.json,lookup-cache.json,pdfs/}`。只允许新增可选字段；损坏时备份为 `*.corrupt-<ts>`。
 4. **不迁移 Typert Remote API**（需要 TS 装饰器与代码生成产物），HTTP 路由靠同源校验加固。
-5. **本地开发包名**：`package.json` 在开发期间保持 `@local/dsh-english-practice`（桌面 profile 以 link: 安装）。
-   发布提交会统一改成 `dsh-increasing-my-english`（package.json、cordis.patch.yml、client.js 的 PKG 与 loader id、locale meta）。
+5. **包名唯一**：`dsh-increasing-my-english`。改名必须同步四处：`package.json#name`、`cordis.patch.yml#name`、
+   `client.js` 的 `PKG` 与 `window.__ModuleLoader__.load({ id })`（契约测试会守住）；桌面 profile 以 `link:` 安装本目录。
 
 ## 目录结构（目标态）
 
