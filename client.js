@@ -18,7 +18,7 @@ window.__ModuleLoader__.load({
     //   EMPTY_SEGMENTS / EMPTY_PAGES / EMPTY_WORDS — 稳定空数组（memo 依赖不抖动）
     //   TRANSCRIPT_CHUNK          — 文稿视口切片大小
     //   FONT_STORAGE_PREFIX / PDF_ZOOM_STORAGE_KEY — localStorage 键
-    //   ENV_COMMANDS              — 环境自检卡里可一键复制的命令
+    //   ENV_PLATFORM / ENV_COMMANDS — 环境自检卡里可一键复制的命令（poppler 按平台切换）
     // ═══════════════════════════════════════════════════════════════════
     const PKG = '@local/dsh-english-practice'
     const NS = 'englishPractice'
@@ -48,10 +48,24 @@ window.__ModuleLoader__.load({
     const FONT_STORAGE_PREFIX = 'english-practice:font:'
     const PDF_ZOOM_STORAGE_KEY = 'english-practice:pdf-zoom'
 
+    // Poppler 命令随运行平台变化（桌面版 Windows/macOS 与 Linux 的包管理器不同）
+    const ENV_PLATFORM = (() => {
+      try {
+        const text = String(globalThis.navigator?.userAgent ?? '') + ' ' + String(globalThis.navigator?.platform ?? '')
+        if (/Windows/i.test(text)) return 'win'
+        if (/Mac/i.test(text)) return 'mac'
+        return 'posix'
+      } catch {
+        return 'win'
+      }
+    })()
+
     const ENV_COMMANDS = {
       blInstall: 'npm i -g bailian-cli --registry=https://registry.npmmirror.com',
       blLogin: 'bl auth login --console',
-      popplerInstall: 'winget install -e --id oschwartz10612.Poppler',
+      popplerInstall: ENV_PLATFORM === 'win'
+        ? 'winget install -e --id oschwartz10612.Poppler'
+        : ENV_PLATFORM === 'mac' ? 'brew install poppler' : 'sudo apt install poppler-utils',
     }
 
     // ═══════════════════════════════════════════════════════════════════
