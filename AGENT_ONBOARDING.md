@@ -12,6 +12,7 @@ The user ends up with:
 - one new transcript from the newest un-transcribed recording, if any;
 - pending wordbook entries completed, multi-sense analysis run for every stale word (repeat until `remaining` is 0; fills `meanings[].example` and new senses), and `vocab/生词本.md` exported;
 - the wordbook's words reviewable in daily review rounds in the panel's third view **Review** (EN → ZH / ZH → EN / Mixed); mastery and progress stay local in `.dsh-english/recall.json`;
+- the panel's fourth view **Graph** shows how transcripts and words (and words among themselves) connect; it is derived read-only, needs no agent action and writes nothing;
 - a short report with only what they still need to do, plus one 10-minute reading task.
 
 ## Boundaries
@@ -194,6 +195,7 @@ Review has no agent tool and the panel maintains its progress; just point the us
    - the practice direction can be **EN → ZH** (English → Chinese), **ZH → EN** (Chinese → English) or **Mixed**, switchable in the panel at any time;
    - after answering, self-grade **Forgot / Fuzzy / Got it / Easy** (shortcuts 1–4) and the panel schedules the next review by mastery; single words or the whole progress can be reset at any time.
 3. If no reviewable words exist, explain why (no word entries yet, or word entries without a Chinese meaning) and ask the user to look words up from a transcript first; when there is no round yet for today, reopening Review after adding words prepares it.
+4. The fourth tab, **Graph**, is read-only: it derives transcript ↔ word and word ↔ word relations from the transcripts, the wordbook and the review progress. Point the user at it once; never try to "repair" graph data (there is nothing persisted to repair).
 
 ### 5d. Reading task
 
@@ -213,6 +215,7 @@ Use the user's language. Keep it short.
 - adding/enabling the plugin on the Plugins page;
 - dropping an episode into `recordings/`;
 - opening the right sidebar **English practice** panel and doing today's round on the third tab, **Review**;
+- opening the fourth tab, **Graph**, to see how today's words connect to the transcripts (optional, read-only);
 - opening the right sidebar **English practice** panel and checking the **Environment check** card.
 
 Do not list things you already did.
@@ -232,6 +235,7 @@ Do not list things you already did.
 | Audio already transcribed | Do not transcribe again; use the existing transcript. |
 | No pending wordbook entries | Export and say there was nothing to fill. |
 | Recall fails to load | Ask the user to refresh the page first; if it still fails, restart DSH (host changes need a restart) and reopen the panel's third tab. Never edit `.dsh-english/recall.json` by hand. |
+| Graph is empty or says nothing to connect | It is derived: it is empty when the wordbook has no words or no transcript contains them. Transcribe/import material and look words up first; there is no graph data to fix. |
 | `lookup` fails | Skip that entry, continue, report the error. |
 | Transcription fails | Report the exact error; do not retry more than once; do not start another file. |
 | PATH/restart needed | Put "restart DSH" in **Waiting on you**; do not restart it yourself. |

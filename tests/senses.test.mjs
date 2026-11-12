@@ -354,6 +354,45 @@ test('mergeSenses is idempotent and caps the meaning list at 8', () => {
   assert.deepEqual(noEvidence.meanings, [{ pos: 'v.', zh: '跑' }])
 })
 
+test('mergeSenses folds a near-duplicate sense instead of appending it', () => {
+  const contexts = [
+    { text: 'Police intervened at noon.', title: 'A', speaker: '0', startMs: 1000, transcript: 'a.json' },
+  ]
+  const entry = {
+    word: 'intervene',
+    meanings: [
+      { pos: 'v.', zh: '介入；干预；调停' },
+      { pos: 'n.', zh: '干预；介入' },
+    ],
+  }
+  const merged = mergeSenses(entry, [{ pos: 'v.', zh: '介入；干预', contexts: [1] }], contexts)
+  assert.equal(merged.added, 0)
+  assert.equal(merged.total, 1)
+  assert.equal(merged.meanings[0].zh, '介入；干预；调停')
+  assert.equal(merged.meanings[0].example, 'Police intervened at noon.')
+  // The input entry is never mutated.
+  assert.equal(entry.meanings.length, 2)
+  // Folding is idempotent.
+  const again = mergeSenses({ ...entry, meanings: merged.meanings }, [{ pos: 'v.', zh: '介入；干预', contexts: [1] }], contexts)
+  assert.equal(again.added, 0)
+  assert.deepEqual(again.meanings, merged.meanings)
+})
+
+test('mergeSenses folds stale duplicate meanings even without new senses', () => {
+  const entry = {
+    word: 'affair',
+    meanings: [
+      { pos: 'n.', zh: '风流韵事；婚外情' },
+      { pos: 'n.', zh: '婚外情；风流韵事', example: 'Their affair was brief.' },
+    ],
+  }
+  const merged = mergeSenses(entry, [], [])
+  assert.equal(merged.added, 0)
+  assert.equal(merged.total, 1)
+  assert.equal(merged.meanings[0].zh, '风流韵事；婚外情')
+  assert.equal(merged.meanings[0].example, 'Their affair was brief.')
+})
+
 test('the pure pipeline composes: corpus -> contexts -> prompt -> normalize -> merge', () => {
   const documents = [
     documentOf('a.json', 'Podcast A', {

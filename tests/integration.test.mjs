@@ -99,6 +99,7 @@ test('gateway timeout budget: 60s default, 300s for transcripts.import', () => {
   assert.equal(getRequestTimeoutMs('env.check'), 60000)
   assert.equal(getRequestTimeoutMs('vocab.add'), 60000)
   assert.equal(getRequestTimeoutMs('vocab.analyze'), 180000)
+  assert.equal(getRequestTimeoutMs('graph.overview'), 30000)
   assert.equal(getRequestTimeoutMs('transcripts.import'), 300000)
   assert.equal(ACTION_TIMEOUT_MS['transcripts.import'], 300000)
   for (const action of ACTION_NAMES) {
@@ -587,4 +588,116 @@ test('recall HTTP: overview / grade / reset over a stub context', async (t) => {
   assert.deepEqual(resetFile.words, {})
   assert.deepEqual(resetFile.days[today].results, [])
   assert.deepEqual(resetFile.days[today].items, plannedIds)
+})
+
+/**
+ * 图谱（graph）HTTP 子测试：真实 host 组装（apply + stub context + 临时工作区），
+ * 只走 HTTP action 分发表，核对 graph.overview 的 payload 契约、来源边与删稿后的收敛。
+ */
+test('graph HTTP: overview exposes transcript-word and word-word relations', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'english-graph-int-'))
+  const stub = createStubContext(root)
+  apply(stub.ctx)
+  t.after(async () => {
+    for (const disposer of [...stub.disposers].reverse()) {
+      try {
+        await disposer()
+      } catch {
+        // best effort
+      }
+    }
+    await rm(root, { recursive: true, force: true })
+  })
+  const handler = stub.routes.get('/dsh-english/api')
+  assert.equal(typeof handler, 'function')
+  const call = (action, payload) => callHttp(handler, { action, sessionId: 'session-test', payload })
+
+  // 空工作区：200 + 空图（不是错误）
+  const empty = await call('graph.overview', {})
+  assert.equal(empty.status, 200)
+  assert.equal(empty.json.ok, true)
+  const emptyValue = empty.json.value
+  assert.deepEqual(Object.keys(emptyValue).sort(), ['generatedAt', 'links', 'nodes', 'summary', 'version'])
+  assert.equal(emptyValue.version, 1)
+  assert.equal(emptyValue.summary.words, 0)
+  assert.equal(emptyValue.summary.transcripts, 0)
+  assert.equal(emptyValue.summary.links.total, 0)
+  assert.match(emptyValue.generatedAt, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
+
+  // 一篇文稿 + 三个词（alpha 带来源文稿与例句）
+  const imported = await call('transcripts.import', {
+    name: 'graph.txt',
+    content: 'Alpha beta share one sentence.\n\nGamma sits alone.',
+  })
+  assert.equal(imported.status, 200)
+  const file = imported.json.value.file
+  const specs = [
+    {
+      word: 'alpha',
+      meanings: [{ pos: 'v.', zh: '甲' }],
+      sentence: 'Alpha beta share one sentence.',
+      source: { transcript: file, title: 'graph', speaker: '0', startMs: 0 },
+    },
+    { word: 'beta', meanings: [{ pos: 'v.', zh: '乙' }] },
+    { word: 'gamma', meanings: [{ pos: 'v.', zh: '丙' }] },
+  ]
+  const ids = {}
+  for (const spec of specs) {
+    const added = await call('vocab.add', { kind: 'word', ...spec })
+    assert.equal(added.status, 200)
+    assert.equal(added.json.value.duplicate, false)
+    ids[spec.word] = added.json.value.id
+  }
+
+  const graph = await call('graph.overview', {})
+  assert.equal(graph.status, 200)
+  assert.equal(graph.json.ok, true)
+  const value = graph.json.value
+  assert.equal(value.summary.words, 3)
+  assert.equal(value.summary.transcripts, 1)
+  assert.equal(value.summary.linkedWords, 3)
+  assert.equal(value.summary.isolatedWords, 0)
+  assert.equal(value.summary.links.appears, 3)
+  assert.equal(value.summary.links.cooccur, 1)
+  assert.equal(value.summary.links.morph, 0)
+  assert.equal(value.summary.links.sense, 0)
+  assert.deepEqual(value.summary.truncated, { words: 0, transcripts: 0 })
+  assert.equal(value.nodes.length, 4)
+
+  const transcriptNode = value.nodes.find((node) => node.kind === 'transcript')
+  assert.equal(transcriptNode.id, 't:' + file)
+  assert.equal(transcriptNode.file, file)
+  assert.equal(transcriptNode.matchedWords, 3)
+  assert.equal(transcriptNode.segments, 2)
+  const alphaNode = value.nodes.find((node) => node.id === 'w:' + ids.alpha)
+  assert.equal(alphaNode.word, 'alpha')
+  assert.equal(alphaNode.degree, 2)
+  assert.deepEqual(alphaNode.meanings, [{ pos: 'v.', zh: '甲' }])
+
+  const origin = value.links.find((link) => link.kind === 'appears' && link.target === 'w:' + ids.alpha)
+  assert.equal(origin.origin, true)
+  assert.equal(origin.count, 1)
+  assert.equal(origin.sample.text, 'Alpha beta share one sentence.')
+  assert.equal(origin.sample.transcript, file)
+  assert.equal(origin.sample.startMs, 0)
+  assert.equal(origin.sample.speaker, '0')
+  const gamma = value.links.find((link) => link.kind === 'appears' && link.target === 'w:' + ids.gamma)
+  assert.equal(gamma.origin, false)
+  assert.equal(gamma.sample, undefined)
+
+  const cooccur = value.links.find((link) => link.kind === 'cooccur')
+  assert.deepEqual([cooccur.source, cooccur.target].sort(), ['w:' + ids.alpha, 'w:' + ids.beta].sort())
+  assert.equal(cooccur.sentences, 1)
+  assert.equal(cooccur.docs, 1)
+
+  // 删除文稿后：文稿节点与全部边消失，词回到孤立状态
+  const deleted = await call('transcripts.delete', { file })
+  assert.equal(deleted.status, 200)
+  const after = await call('graph.overview', {})
+  assert.equal(after.status, 200)
+  assert.equal(after.json.value.summary.transcripts, 0)
+  assert.equal(after.json.value.summary.links.total, 0)
+  assert.equal(after.json.value.summary.isolatedWords, 3)
+  assert.equal(after.json.value.nodes.filter((node) => node.kind === 'transcript').length, 0)
+  assert.equal(after.json.value.nodes.filter((node) => node.kind === 'word').length, 3)
 })

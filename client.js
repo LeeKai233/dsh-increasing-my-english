@@ -17,7 +17,7 @@ window.__ModuleLoader__.load({
     //   MIN_ZOOM / MAX_ZOOM / ZOOM_STEP — PDF 缩放偏好
     //   EMPTY_SEGMENTS / EMPTY_PAGES / EMPTY_WORDS — 稳定空数组（memo 依赖不抖动）
     //   TRANSCRIPT_CHUNK          — 文稿视口切片大小
-    //   FONT_STORAGE_PREFIX / PDF_ZOOM_STORAGE_KEY — localStorage 键
+    //   FONT_STORAGE_PREFIX / PDF_ZOOM_STORAGE_KEY / TRANSCRIPT_STORAGE_KEY — localStorage 键
     //   ENV_PLATFORM / ENV_COMMANDS — 环境自检卡里可一键复制的命令（poppler 按平台切换）
     // ═══════════════════════════════════════════════════════════════════
     const PKG = 'dsh-increasing-my-english'
@@ -47,6 +47,43 @@ window.__ModuleLoader__.load({
 
     const FONT_STORAGE_PREFIX = 'english-practice:font:'
     const PDF_ZOOM_STORAGE_KEY = 'english-practice:pdf-zoom'
+    // 「上次打开的那一篇」只存浏览器本地：面板重开、刷新页面、换会话都回到同一篇。
+    const TRANSCRIPT_STORAGE_KEY = 'english-practice:last-transcript'
+
+    // 图谱（graph）：筛选偏好、宿主主题色变量名（绘制前用 getComputedStyle 解析）、
+    // 力导向参数（Fruchterman–Reingold，确定性、可收敛）。
+    const GRAPH_FILTER_STORAGE_KEY = 'english-practice:graph-filter'
+    const GRAPH_FILTERS = ['all', 'doc', 'word']
+    const GRAPH_PALETTE = {
+      word: '--dsw-alias-brand-primary',
+      transcript: '--dsw-alias-state-warn-primary',
+      appears: '--dsw-alias-label-secondary',
+      cooccur: '--dsw-alias-brand-primary',
+      morph: '--dsw-alias-state-success-primary',
+      sense: '--dsw-alias-state-error-primary',
+      mastery: '--dsw-alias-state-success-primary',
+      text: '--dsw-alias-label-primary',
+      halo: '--dsw-alias-bg-base',
+    }
+    const GRAPH_COLORS_FALLBACK = {
+      word: '#3b82f6',
+      transcript: '#d97706',
+      appears: '#8b8f98',
+      cooccur: '#3b82f6',
+      morph: '#16a34a',
+      sense: '#dc2626',
+      mastery: '#16a34a',
+      text: '#1f2328',
+      halo: '#ffffff',
+    }
+    // 下限放得比较低：几百个节点时「复位视图」仍能把整张图放进窄侧栏。
+    const GRAPH_MIN_SCALE = 0.15
+    const GRAPH_MAX_SCALE = 2.6
+    const GRAPH_SETTLE_TEMPERATURE = 0.6
+    const GRAPH_COOLING = 0.97
+    // 拖动后重新加热：必须高于 GRAPH_SETTLE_TEMPERATURE，否则下一步会立刻判定收敛。
+    const GRAPH_REHEAT_MIN = 1.2
+    const GRAPH_REHEAT_FACTOR = 0.08
 
     // Poppler 命令随运行平台变化（桌面版 Windows/macOS 与 Linux 的包管理器不同）
     const ENV_PLATFORM = (() => {
@@ -75,11 +112,12 @@ window.__ModuleLoader__.load({
     // ═══════════════════════════════════════════════════════════════════
     const zh = {
       'tab.title': '英语精读',
-      'tab.description': '播客转写、生词本与背记',
+      'tab.description': '播客转写、生词本、背记与图谱',
       'button.open': '打开英语精读',
       'mode.reader': '文稿',
       'mode.vocab': '生词本',
       'mode.recall': '背记',
+      'mode.graph': '图谱',
       'common.refresh': '刷新',
       'common.copy': '复制',
       'common.copied': '已复制',
@@ -244,6 +282,56 @@ window.__ModuleLoader__.load({
       'recall.resetYes': '确认重置',
       'recall.resetNo': '取消',
       'recall.historyTitle': '最近 {n} 天',
+      'graph.loading': '正在整理关系图…',
+      'graph.failed': '图谱加载失败',
+      'graph.retry': '重试',
+      'graph.refresh': '刷新',
+      'graph.summary': '{words} 个单词 · {transcripts} 篇文稿 · {links} 条联系',
+      'graph.emptyWords': '生词本还没有单词。先在文稿里划词查词并加入生词本。',
+      'graph.emptyTranscripts': '还没有文稿。转写一段录音或导入一份文稿后再来看图谱。',
+      'graph.emptyLinks': '这些词还没有出现在任何文稿里，暂时没有可展示的联系。',
+      'graph.filter': '联系类型',
+      'graph.filterAll': '全部',
+      'graph.filterDoc': '文稿-单词',
+      'graph.filterWord': '单词-单词',
+      'graph.search': '搜索单词或文稿',
+      'graph.searchResults': '搜索结果',
+      'graph.searchEmpty': '没有匹配的单词或文稿',
+      'graph.zoomIn': '放大',
+      'graph.zoomOut': '缩小',
+      'graph.resetView': '复位视图',
+      'graph.hint': '拖动节点、滚轮缩放，点击空白处取消选择。',
+      'graph.legendTitle': '图例',
+      'graph.legendWord': '单词',
+      'graph.legendTranscript': '文稿',
+      'graph.legendAppears': '出现 / 来源',
+      'graph.legendCooccur': '同句共现',
+      'graph.legendMorph': '同根 / 同族',
+      'graph.legendSense': '近义',
+      'graph.detailEmpty': '点击一个节点，查看它和哪些文稿、单词相连。',
+      'graph.kindWord': '单词',
+      'graph.kindTranscript': '文稿',
+      'graph.close': '关闭',
+      'graph.mastery': '掌握度 {n}/5',
+      'graph.noMeaning': '还没有中文释义',
+      'graph.sentence': '例句',
+      'graph.relations': '联系',
+      'graph.noRelations': '这个节点还没有联系。',
+      'graph.openTranscript': '打开文稿',
+      'graph.scopeTranscript': '只看这篇文稿',
+      'graph.scopeChip': '只看：{title}',
+      'graph.clearScope': '显示全部',
+      'graph.occurrences': '出现 {n} 次',
+      'graph.origin': '来源',
+      'graph.matchedWords': '本稿 {n} 个词',
+      'graph.sharedSentences': '同句 {n} 次',
+      'graph.morphRoot': '词源同根：{detail}',
+      'graph.morphFamily': '词形同族：{detail}',
+      'graph.sense': '近义：{detail}',
+      'graph.transcriptMeta': '{segments} 段 · {duration} · {speakers} 位说话人',
+      'graph.truncated': '节点较多，仅显示最相关的 {words} 个单词和 {transcripts} 篇文稿。',
+      'graph.isolated': '另有 {n} 个单词还没有任何联系。',
+      'graph.ariaLabel': '文稿与单词关系图谱：{words} 个单词、{transcripts} 篇文稿',
       'popup.word': '单词',
       'popup.sentence': '句子',
       'popup.loading': '查询中…',
@@ -317,11 +405,12 @@ window.__ModuleLoader__.load({
 
     const en = {
       'tab.title': 'English practice',
-      'tab.description': 'Podcast transcripts, wordbook and review',
+      'tab.description': 'Podcast transcripts, wordbook, review and graph',
       'button.open': 'Open English practice',
       'mode.reader': 'Transcript',
       'mode.vocab': 'Wordbook',
       'mode.recall': 'Review',
+      'mode.graph': 'Graph',
       'common.refresh': 'Refresh',
       'common.copy': 'Copy',
       'common.copied': 'Copied',
@@ -486,6 +575,56 @@ window.__ModuleLoader__.load({
       'recall.resetYes': 'Reset everything',
       'recall.resetNo': 'Cancel',
       'recall.historyTitle': 'Last {n} days',
+      'graph.loading': 'Building the graph…',
+      'graph.failed': 'Could not load the graph',
+      'graph.retry': 'Retry',
+      'graph.refresh': 'Refresh',
+      'graph.summary': '{words} words · {transcripts} transcripts · {links} links',
+      'graph.emptyWords': 'No wordbook words yet. Select a word in a transcript, look it up and add it.',
+      'graph.emptyTranscripts': 'No transcripts yet. Transcribe a recording or import a document, then come back.',
+      'graph.emptyLinks': 'These words do not appear in any transcript yet, so there is nothing to connect.',
+      'graph.filter': 'Relation types',
+      'graph.filterAll': 'All',
+      'graph.filterDoc': 'Transcripts',
+      'graph.filterWord': 'Words',
+      'graph.search': 'Search words or transcripts',
+      'graph.searchResults': 'Search results',
+      'graph.searchEmpty': 'No matching words or transcripts',
+      'graph.zoomIn': 'Zoom in',
+      'graph.zoomOut': 'Zoom out',
+      'graph.resetView': 'Reset view',
+      'graph.hint': 'Drag nodes, scroll to zoom, click empty space to clear the selection.',
+      'graph.legendTitle': 'Legend',
+      'graph.legendWord': 'Word',
+      'graph.legendTranscript': 'Transcript',
+      'graph.legendAppears': 'Occurs / source',
+      'graph.legendCooccur': 'Same sentence',
+      'graph.legendMorph': 'Root / family',
+      'graph.legendSense': 'Shared meaning',
+      'graph.detailEmpty': 'Select a node to see which transcripts and words it connects to.',
+      'graph.kindWord': 'Word',
+      'graph.kindTranscript': 'Transcript',
+      'graph.close': 'Close',
+      'graph.mastery': 'Mastery {n}/5',
+      'graph.noMeaning': 'No Chinese meaning yet',
+      'graph.sentence': 'Example',
+      'graph.relations': 'Relations',
+      'graph.noRelations': 'This node has no relations yet.',
+      'graph.openTranscript': 'Open transcript',
+      'graph.scopeTranscript': 'Only this transcript',
+      'graph.scopeChip': 'Only: {title}',
+      'graph.clearScope': 'Show all',
+      'graph.occurrences': '{n} in this transcript',
+      'graph.origin': 'Source',
+      'graph.matchedWords': '{n} words here',
+      'graph.sharedSentences': '{n} shared sentences',
+      'graph.morphRoot': 'Same root: {detail}',
+      'graph.morphFamily': 'Same word family: {detail}',
+      'graph.sense': 'Shared meaning: {detail}',
+      'graph.transcriptMeta': '{segments} segments · {duration} · {speakers} speakers',
+      'graph.truncated': 'Large graph: showing the {words} most connected words and {transcripts} transcripts.',
+      'graph.isolated': '{n} more words have no links yet.',
+      'graph.ariaLabel': 'Transcript and word relation graph: {words} words, {transcripts} transcripts',
       'popup.word': 'Word',
       'popup.sentence': 'Sentence',
       'popup.loading': 'Looking up…',
@@ -754,6 +893,49 @@ window.__ModuleLoader__.load({
       '.egl-recall-reset:disabled{opacity:.55;color:var(--dsw-alias-label-secondary);cursor:default}',
       '.egl-recall-resetbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0 0;padding-top:10px;border-top:.5px solid var(--dsw-alias-border-l1)}',
       '.egl-recall-resetbar-text{flex:1;min-width:0;font-size:11px;color:var(--dsw-alias-label-secondary)}',
+      '.egl-graph{display:flex;flex-direction:column;flex:1;min-height:0}',
+      '.egl-graph-tools{flex:none;display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 10px;border-bottom:.5px solid var(--dsw-alias-border-l1)}',
+      '.egl-graph-search{flex:1;min-width:90px;height:26px}',
+      '.egl-graph-actions{display:flex;gap:4px;margin-left:auto;flex:none}',
+      '.egl-graph-zoom{width:26px;padding:0;font-variant-numeric:tabular-nums}',
+      '.egl-graph-banners{flex:none;display:flex;flex-direction:column;gap:4px;padding:6px 10px 0}',
+      '.egl-graph-banner{margin:0;padding:4px 8px;font-size:11px;line-height:1.5;border-radius:var(--dsw-radius-sm);background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary)}',
+      '.egl-graph-scope{flex:none;display:flex;align-items:center;gap:8px;padding:6px 10px 0;font-size:11px;color:var(--dsw-alias-label-secondary)}',
+      '.egl-graph-scopetext{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+      '.egl-graph-scopebtn{flex:none;padding:0;border:0;background:transparent;color:var(--dsw-alias-brand-primary);font:inherit;font-size:11px;cursor:pointer}',
+      '.egl-graph-results{flex:none;max-height:124px;overflow:auto;border-bottom:.5px solid var(--dsw-alias-border-l1);padding:4px 10px}',
+      '.egl-graph-result{display:flex;align-items:center;gap:6px;width:100%;padding:3px 4px;border:0;border-radius:var(--dsw-radius-sm);background:transparent;color:inherit;font:inherit;font-size:12px;text-align:left;cursor:pointer}',
+      '.egl-graph-result:hover{background:var(--dsw-alias-bg-layer-2)}',
+      '.egl-graph-result-label{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+      '.egl-graph-canvas{position:relative;flex:1 1 auto;min-height:120px;overflow:hidden}',
+      '.egl-graph-canvas canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab}',
+      '.egl-graph-canvas canvas.is-dragging{cursor:grabbing}',
+      '.egl-graph-legend{flex:none;display:flex;flex-wrap:wrap;gap:2px 10px;padding:6px 10px;border-top:.5px solid var(--dsw-alias-border-l1);font-size:10px;line-height:1.6;color:var(--dsw-alias-label-secondary)}',
+      '.egl-graph-key{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}',
+      '.egl-graph-dot{width:8px;height:8px;border-radius:999px;flex:none}',
+      '.egl-graph-dash{width:14px;height:0;border-top:1.5px dashed currentColor;flex:none;opacity:.75}',
+      // 详情区高度固定：切换节点、内容长短都不改变高度，画布不会因此重排；内容超出在面板内滚动。
+      '.egl-graph-detail{flex:0 0 36%;min-height:160px;max-height:340px;overflow:auto;border-top:.5px solid var(--dsw-alias-border-l1);padding:8px 10px 12px}',
+      '.egl-graph-detail .egl-empty{padding:10px 4px}',
+      '.egl-graph-detailhead{display:flex;align-items:baseline;gap:8px;margin:0 0 6px;min-width:0}',
+      '.egl-graph-kind{flex:none;font-size:10px;line-height:16px;padding:0 6px;border-radius:999px;border:.5px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary)}',
+      '.egl-graph-title{min-width:0;font-weight:600;font-size:1.05em;overflow-wrap:anywhere}',
+      '.egl-graph-close{margin-left:auto;flex:none;width:22px;height:22px;padding:0;border:0;background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:14px;line-height:1;cursor:pointer;border-radius:var(--dsw-radius-sm)}',
+      '.egl-graph-close:hover{background:var(--dsw-alias-bg-layer-2)}',
+      '.egl-graph-meta{margin:0 0 6px;font-size:11px;color:var(--dsw-alias-label-secondary);line-height:1.5}',
+      '.egl-graph-meanings{margin:0 0 6px}',
+      '.egl-graph-example{margin:0 0 8px;padding:6px 8px;border-radius:var(--dsw-radius-sm);background:var(--dsw-alias-bg-layer-2);font-size:11px;line-height:1.55;color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere}',
+      '.egl-graph-actionrow{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 8px}',
+      '.egl-graph-section{margin:8px 0 4px;font-size:11px;font-weight:600;color:var(--dsw-alias-label-secondary)}',
+      '.egl-graph-rel{display:flex;align-items:baseline;gap:6px;width:100%;padding:3px 2px;border:0;border-radius:var(--dsw-radius-sm);background:transparent;color:inherit;font:inherit;font-size:12px;line-height:1.5;text-align:left;cursor:pointer}',
+      '.egl-graph-rel:hover{background:var(--dsw-alias-bg-layer-2)}',
+      '.egl-graph-relkind{flex:none;font-size:10px;color:var(--dsw-alias-label-secondary);min-width:44px}',
+      '.egl-graph-reltext{min-width:0;flex:1;overflow-wrap:anywhere}',
+      '.egl-graph-relcount{flex:none;font-size:10px;color:var(--dsw-alias-label-secondary);font-variant-numeric:tabular-nums}',
+      '.egl-graph-progress{display:inline-flex;align-items:center;gap:3px;vertical-align:middle;margin-left:6px}',
+      '.egl-graph-progressseg{width:9px;height:4px;border-radius:2px;background:var(--dsw-alias-border-l2)}',
+      '.egl-graph-progressseg.is-on{background:var(--dsw-alias-state-success-primary)}',
+      '.egl-graph-sample{margin:1px 0 0 50px;font-size:11px;line-height:1.5;color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere}',
     ].join('')
 
     const HEADER_CSS = [
@@ -764,14 +946,20 @@ window.__ModuleLoader__.load({
 
 
     // ═══════════════════════════════════════════════════════════════════
-    // §3 纯函数（时间、格式化、高亮、数学公式、选区清洗、环境判定）
+    // §3 纯函数（时间、格式化、高亮、数学公式、选区清洗、环境判定、图谱布局）
     // 符号表：
     //   fmtClock / errorMessage / parseLoose / classify / sentenceAround / speakerName
     //   readFontSize / saveFontSize / readPdfZoom / savePdfZoom — localStorage 偏好
+    //   readLastTranscript / saveLastTranscript — 上次打开的文稿（localStorage，跨面板重开保留）
     //   RECALL_MODE_STORAGE_KEY / RECALL_MODES / RECALL_GRADES / readRecallMode / saveRecallMode — 背记练习方式偏好与评分档位
     //   normalizeEnAnswer / normalizeZhAnswer / levenshtein / lcsLength / judgeAnswer — 背记答案自动判定（客户端，不落后端）
     //   shiftDateString / recallNextLabel — 背记日期展示（最近 14 天柱状图、「明天」标签）
     //   recallExampleOf / maskExampleTerms — 背记「显示例句」提示（取含目标词的句子、中→英时把词挖空）
+    //   meaningAtoms / mergeMeaningPair / collapseMeanings — 生词本义项展示合并（与 host/text.js 同规则）
+    //   readGraphFilter / saveGraphFilter — 图谱联系类型筛选偏好（localStorage）
+    //   graphLinkVisible / graphCreateSim / graphStepSim / graphFitView / graphNeighbors /
+    //   graphVisibleDegrees / graphSearchNodes / graphScopedData / graphNodeRadius — 图谱布局、筛选与搜索（确定性纯函数）
+    //   graphResolvePalette — 宿主 CSS 变量 → 画布配色（getComputedStyle 解析）
     //   fileResourceAddress — 工作区文件 → dsh-resource:// 地址
     //   hashString / listSignature — 轮询数据签名（只在变化时 setState）
     //   copyText — 剪贴板写入（唯一浏览器副作用小工具）
@@ -828,6 +1016,27 @@ window.__ModuleLoader__.load({
     function savePdfZoom(value) {
       try {
         window.localStorage.setItem(PDF_ZOOM_STORAGE_KEY, String(value))
+      } catch {
+        // a storage failure only loses the preference
+      }
+    }
+
+    // ── 文稿选择（reader）────────────────────────────────────────────
+    // 只存文件名（与工作区无关，跨会话共享）：面板重开时回到上次看的那一篇；
+    // 文件被删除或不在当前工作区时由面板回退到最新一篇。
+    function readLastTranscript() {
+      try {
+        const value = String(window.localStorage.getItem(TRANSCRIPT_STORAGE_KEY) ?? '').trim()
+        return value === '' ? null : value
+      } catch {
+        return null
+      }
+    }
+
+    function saveLastTranscript(file) {
+      if (typeof file !== 'string' || file === '') return
+      try {
+        window.localStorage.setItem(TRANSCRIPT_STORAGE_KEY, file)
       } catch {
         // a storage failure only loses the preference
       }
@@ -937,7 +1146,7 @@ window.__ModuleLoader__.load({
       const normalized = normalizeZhAnswer(raw)
       if (normalized === '') return RECALL_VERDICT_WRONG
       const candidates = []
-      for (const meaning of Array.isArray(item?.meanings) ? item.meanings : []) {
+      for (const meaning of collapseMeanings(item?.meanings)) {
         const zh = String(meaning?.zh ?? '')
         const whole = normalizeZhAnswer(zh)
         if (whole !== '') candidates.push(whole)
@@ -1061,6 +1270,394 @@ window.__ModuleLoader__.load({
       const index = speakers.findIndex((speaker) => String(speaker.id) === String(id))
       if (index >= 0 && speakers[index].label) return speakers[index].label
       return t('reader.speaker', { n: String(id) })
+    }
+
+    // ── 生词本义项合并（展示）──────────────────────────────────────
+    // 与宿主 host/text.js 的 collapseMeanings 同一规则：中文义项按 ；/;，,、/ 切成片段，
+    // 一个片段集合被另一个完全覆盖时视为同一条释义（更完整的写法胜出、证据回填）；
+    // 跨词性只在「严格包含」时合并，避免把 n. 增加 / v. 增加 这类同词不同性的义项吞掉。
+    // 只用于展示：不改写磁盘数据。
+    const MEANING_ATOM_SPLIT = /[；;，,、/]/
+
+    function meaningAtoms(zh) {
+      const atoms = []
+      const seen = new Set()
+      for (const piece of String(zh ?? '').split(MEANING_ATOM_SPLIT)) {
+        const atom = piece.trim()
+        if (atom === '' || seen.has(atom)) continue
+        seen.add(atom)
+        atoms.push(atom)
+      }
+      return atoms
+    }
+
+    function atomCoveredByMeaning(atom, cover) {
+      if (atom === cover) return true
+      return atom.length >= 2 && cover.includes(atom)
+    }
+
+    function atomsCoverMeaning(coverAtoms, targetAtoms) {
+      if (targetAtoms.length === 0 || coverAtoms.length === 0) return false
+      return targetAtoms.every((atom) => coverAtoms.some((cover) => atomCoveredByMeaning(atom, cover)))
+    }
+
+    function atomsStrictlyContainMeaning(biggerAtoms, smallerAtoms) {
+      return smallerAtoms.length < biggerAtoms.length && atomsCoverMeaning(biggerAtoms, smallerAtoms)
+    }
+
+    function hasMeaningExample(meaning) {
+      return typeof meaning.example === 'string' && meaning.example !== ''
+    }
+
+    function hasMeaningSource(meaning) {
+      return meaning.source !== null && typeof meaning.source === 'object' && !Array.isArray(meaning.source)
+    }
+
+    /** 两条义项是否在讲同一件事；合并后返回新对象，无关返回 null。 */
+    function mergeMeaningPair(left, right) {
+      if (!left || typeof left !== 'object' || !right || typeof right !== 'object') return null
+      const leftZh = String(left.zh ?? '').trim()
+      const rightZh = String(right.zh ?? '').trim()
+      if (leftZh === '' || rightZh === '') return null
+      const leftAtoms = meaningAtoms(leftZh)
+      const rightAtoms = meaningAtoms(rightZh)
+      const leftCovers = atomsCoverMeaning(leftAtoms, rightAtoms)
+      const rightCovers = atomsCoverMeaning(rightAtoms, leftAtoms)
+      if (!leftCovers && !rightCovers) return null
+      const leftPos = String(left.pos ?? '').trim()
+      const rightPos = String(right.pos ?? '').trim()
+      if (leftPos !== '' && rightPos !== '' && leftPos.toLowerCase() !== rightPos.toLowerCase()) {
+        if (!atomsStrictlyContainMeaning(leftAtoms, rightAtoms) && !atomsStrictlyContainMeaning(rightAtoms, leftAtoms)) return null
+      }
+      const keepRight = rightCovers && !leftCovers
+      const keep = keepRight ? right : left
+      const drop = keepRight ? left : right
+      const merged = {
+        ...keep,
+        pos: String(keep.pos ?? '').trim() || String(drop.pos ?? '').trim(),
+        zh: String(keep.zh ?? '').trim(),
+      }
+      if (!hasMeaningExample(merged) && hasMeaningExample(drop)) merged.example = drop.example
+      if (!hasMeaningSource(merged) && hasMeaningSource(drop)) merged.source = drop.source
+      return merged
+    }
+
+    /** 折叠讲同一件事的义项；顺序保留首次出现，证据不丢，入参不被修改。 */
+    function collapseMeanings(raw) {
+      const items = []
+      for (const meaning of Array.isArray(raw) ? raw : []) {
+        if (!meaning || typeof meaning !== 'object' || Array.isArray(meaning)) continue
+        const zh = String(meaning.zh ?? '').trim()
+        if (zh === '') continue
+        items.push({ ...meaning, pos: String(meaning.pos ?? '').trim(), zh })
+      }
+      let changed = true
+      while (changed) {
+        changed = false
+        for (let index = 0; index < items.length && !changed; index += 1) {
+          for (let other = index + 1; other < items.length; other += 1) {
+            const merged = mergeMeaningPair(items[index], items[other])
+            if (merged === null) continue
+            items[index] = merged
+            items.splice(other, 1)
+            changed = true
+            break
+          }
+        }
+      }
+      return items
+    }
+
+    // ── 图谱（graph）────────────────────────────────────────────────
+    // 布局与筛选全是纯函数：确定性初始位置（黄金角螺旋 + id 抖动）、
+    // Fruchterman–Reingold 力导向步进、视图拟合、邻居与搜索匹配。
+    // 依赖方向：只引用 §0 常量；DOM / Canvas 交互在 §6 hook，视图在 §7。
+
+    function readGraphFilter() {
+      try {
+        const value = String(window.localStorage.getItem(GRAPH_FILTER_STORAGE_KEY) ?? '')
+        return GRAPH_FILTERS.includes(value) ? value : 'all'
+      } catch {
+        return 'all'
+      }
+    }
+
+    function saveGraphFilter(value) {
+      if (!GRAPH_FILTERS.includes(value)) return
+      try {
+        window.localStorage.setItem(GRAPH_FILTER_STORAGE_KEY, value)
+      } catch {
+        // a storage failure only loses the preference
+      }
+    }
+
+    /** Which relation kinds the segmented filter keeps visible. */
+    function graphLinkVisible(kind, filter) {
+      if (filter === 'doc') return kind === 'appears'
+      if (filter === 'word') return kind === 'cooccur' || kind === 'morph' || kind === 'sense'
+      return true
+    }
+
+    /** Deterministic 0..1 hash used for the initial position jitter (no Math.random). */
+    function graphHash(text) {
+      const source = String(text ?? '')
+      let hash = 2166136261
+      for (let index = 0; index < source.length; index += 1) {
+        hash ^= source.charCodeAt(index)
+        hash = Math.imul(hash, 16777619)
+      }
+      return (hash >>> 0) / 4294967295
+    }
+
+    function graphNodeRadius(node) {
+      if (node?.kind === 'transcript') return 9
+      const degree = Number(node?.degree)
+      return 4.5 + Math.min(6, Math.sqrt(Number.isFinite(degree) && degree > 0 ? degree : 0) * 1.7)
+    }
+
+    function graphNodeLabel(node, max) {
+      const limit = Number.isFinite(max) ? Math.max(4, Math.trunc(max)) : 20
+      const raw = node?.kind === 'transcript'
+        ? String(node?.title ?? node?.file ?? '')
+        : String(node?.word ?? '')
+      const text = raw.trim()
+      return text.length > limit ? text.slice(0, limit - 1) + '…' : text
+    }
+
+    function graphMatchesQuery(node, query) {
+      const text = String(query ?? '').trim().toLowerCase()
+      if (text === '') return true
+      const label = node?.kind === 'transcript'
+        ? String(node?.title ?? node?.file ?? '')
+        : String(node?.word ?? '')
+      return label.toLowerCase().includes(text)
+    }
+
+    /** Up to 20 matching nodes, stable order (words first, then transcripts, each by label). */
+    function graphSearchNodes(nodes, query) {
+      const text = String(query ?? '').trim()
+      if (text === '') return []
+      const matches = []
+      for (const node of Array.isArray(nodes) ? nodes : []) {
+        if (!graphMatchesQuery(node, text)) continue
+        matches.push(node)
+        if (matches.length >= 60) break
+      }
+      matches.sort((left, right) => (
+        (left.kind === 'word' ? 0 : 1) - (right.kind === 'word' ? 0 : 1)
+        || String(left.kind === 'word' ? left.word : left.title).localeCompare(String(right.kind === 'word' ? right.word : right.title))
+      ))
+      return matches.slice(0, 20)
+    }
+
+    /** Narrow the graph to one transcript: the transcript node plus the words it contains. */
+    function graphScopedData(data, scopeFile) {
+      if (!data || typeof data !== 'object') return data
+      const file = typeof scopeFile === 'string' ? scopeFile.trim() : ''
+      if (file === '') return data
+      const transcriptId = 't:' + file
+      const allowed = new Set([transcriptId])
+      for (const link of Array.isArray(data.links) ? data.links : []) {
+        if (link.kind !== 'appears') continue
+        if (link.source === transcriptId) allowed.add(link.target)
+      }
+      const nodes = (Array.isArray(data.nodes) ? data.nodes : []).filter((node) => allowed.has(node.id))
+      const ids = new Set(nodes.map((node) => node.id))
+      const links = (Array.isArray(data.links) ? data.links : []).filter((link) => ids.has(link.source) && ids.has(link.target))
+      return { ...data, nodes, links }
+    }
+
+    /** Build the deterministic force simulation for one payload. */
+    function graphCreateSim(data, width, height) {
+      const w = Math.max(1, width)
+      const h = Math.max(1, height)
+      const nodes = Array.isArray(data?.nodes) ? data.nodes : []
+      const links = Array.isArray(data?.links) ? data.links : []
+      const k = Math.sqrt((w * h) / Math.max(1, nodes.length))
+      const centerX = w / 2
+      const centerY = h / 2
+      const simNodes = []
+      const byId = new Map()
+      for (let index = 0; index < nodes.length; index += 1) {
+        const node = nodes[index]
+        const angle = index * 2.399963229728653
+        const radius = Math.min(w, h) * 0.36 * Math.sqrt((index + 0.5) / Math.max(1, nodes.length))
+        const jitter = graphHash(String(node.id) + ':' + String(index))
+        const simNode = {
+          id: node.id,
+          kind: node.kind,
+          mastery: Number.isFinite(Number(node.mastery)) ? Math.max(0, Math.trunc(Number(node.mastery))) : 0,
+          degree: Number.isFinite(Number(node.degree)) ? Math.max(0, Math.trunc(Number(node.degree))) : 0,
+          x: centerX + Math.cos(angle) * radius + (jitter - 0.5) * 6,
+          y: centerY + Math.sin(angle) * radius + (jitter - 0.5) * 6,
+          dx: 0,
+          dy: 0,
+          fixed: false,
+        }
+        simNodes.push(simNode)
+        byId.set(simNode.id, simNode)
+      }
+      const simLinks = []
+      for (const link of links) {
+        const source = byId.get(link.source)
+        const target = byId.get(link.target)
+        if (source === undefined || target === undefined) continue
+        simLinks.push({
+          link,
+          source,
+          target,
+          weight: link.kind === 'appears' ? 0.75 : 1,
+        })
+      }
+      return { nodes: simNodes, links: simLinks, width: w, height: h, k, temperature: k * 0.12, settled: false, byId }
+    }
+
+    /** Warm the layout up again (after a drag) so the rest of the graph makes room. */
+    function graphReheat(sim) {
+      if (!sim) return
+      sim.settled = false
+      // 回到初始温度（k * 0.12）的大约三分之二，让周围的节点重新让位；
+      // 温度过低会在下一步就被判定为 settled，拖动后其它节点不会动。
+      sim.temperature = Math.max(sim.temperature, Math.max(GRAPH_REHEAT_MIN, sim.k * GRAPH_REHEAT_FACTOR))
+    }
+
+    /**
+     * One Fruchterman–Reingold iteration: repulsion k²/d, attraction d²/k along
+     * every edge, displacement capped by the cooling temperature. Returns the
+     * mean displacement (energie proxy) and flags `settled` when cooled down.
+     */
+    function graphStepSim(sim) {
+      const nodes = sim.nodes
+      if (nodes.length === 0) {
+        sim.settled = true
+        return 0
+      }
+      const k = Math.max(1, sim.k)
+      for (const node of nodes) {
+        node.dx = 0
+        node.dy = 0
+      }
+      for (let a = 0; a < nodes.length; a += 1) {
+        const left = nodes[a]
+        for (let b = a + 1; b < nodes.length; b += 1) {
+          const right = nodes[b]
+          let dx = left.x - right.x
+          let dy = left.y - right.y
+          let distance = Math.sqrt(dx * dx + dy * dy)
+          if (distance < 0.01) {
+            dx = 0.37 * (b + 1)
+            dy = 0.61 * (a + 1)
+            distance = Math.sqrt(dx * dx + dy * dy)
+          }
+          const force = (k * k) / distance
+          const ux = dx / distance
+          const uy = dy / distance
+          left.dx += ux * force
+          left.dy += uy * force
+          right.dx -= ux * force
+          right.dy -= uy * force
+        }
+      }
+      for (const link of sim.links) {
+        const dx = link.target.x - link.source.x
+        const dy = link.target.y - link.source.y
+        const distance = Math.max(0.01, Math.sqrt(dx * dx + dy * dy))
+        const force = ((distance * distance) / k) * link.weight
+        const ux = (dx / distance) * force
+        const uy = (dy / distance) * force
+        link.source.dx += ux
+        link.source.dy += uy
+        link.target.dx -= ux
+        link.target.dy -= uy
+      }
+      const temperature = Math.max(0.4, sim.temperature)
+      let energy = 0
+      for (const node of nodes) {
+        if (node.fixed) continue
+        const magnitude = Math.sqrt(node.dx * node.dx + node.dy * node.dy)
+        if (magnitude < 0.0001) continue
+        const limited = Math.min(magnitude, temperature)
+        node.x = Math.min(sim.width - 10, Math.max(10, node.x + (node.dx / magnitude) * limited))
+        node.y = Math.min(sim.height - 10, Math.max(10, node.y + (node.dy / magnitude) * limited))
+        energy += limited
+      }
+      sim.temperature *= GRAPH_COOLING
+      if (sim.temperature < GRAPH_SETTLE_TEMPERATURE) sim.settled = true
+      return energy / nodes.length
+    }
+
+    function graphBounds(sim) {
+      let minX = Infinity
+      let minY = Infinity
+      let maxX = -Infinity
+      let maxY = -Infinity
+      for (const node of sim.nodes) {
+        const radius = graphNodeRadius(node) + 16
+        minX = Math.min(minX, node.x - radius)
+        minY = Math.min(minY, node.y - radius)
+        maxX = Math.max(maxX, node.x + radius)
+        maxY = Math.max(maxY, node.y + radius)
+      }
+      if (!Number.isFinite(minX)) return null
+      return { minX, minY, maxX, maxY }
+    }
+
+    /** View transform `screen = world * scale + t` that fits every node with padding. */
+    function graphFitView(sim, width, height, padding) {
+      const pad = Number.isFinite(padding) ? padding : 18
+      const bounds = graphBounds(sim)
+      if (bounds === null || width < 2 || height < 2) return { scale: 1, tx: width / 2, ty: height / 2 }
+      const spanX = Math.max(24, bounds.maxX - bounds.minX)
+      const spanY = Math.max(24, bounds.maxY - bounds.minY)
+      const scale = Math.min(
+        GRAPH_MAX_SCALE,
+        Math.max(GRAPH_MIN_SCALE, Math.min((width - pad * 2) / spanX, (height - pad * 2) / spanY)),
+      )
+      return {
+        scale,
+        tx: width / 2 - ((bounds.minX + bounds.maxX) / 2) * scale,
+        ty: height / 2 - ((bounds.minY + bounds.maxY) / 2) * scale,
+      }
+    }
+
+    /** Undirected neighbour set of one node id (highlight/dimming). */
+    function graphNeighbors(links, id) {
+      const map = new Map()
+      for (const link of Array.isArray(links) ? links : []) {
+        if (!map.has(link.source)) map.set(link.source, new Set())
+        if (!map.has(link.target)) map.set(link.target, new Set())
+        map.get(link.source).add(link.target)
+        map.get(link.target).add(link.source)
+      }
+      return map.get(id) ?? new Set()
+    }
+
+    /** Visible degree per node under the current kind filter. */
+    function graphVisibleDegrees(links, filter) {
+      const degrees = new Map()
+      for (const link of Array.isArray(links) ? links : []) {
+        if (!graphLinkVisible(link.kind, filter)) continue
+        degrees.set(link.source, (degrees.get(link.source) ?? 0) + 1)
+        degrees.set(link.target, (degrees.get(link.target) ?? 0) + 1)
+      }
+      return degrees
+    }
+
+    /** Resolve the theme colours through getComputedStyle (falls back to defaults). */
+    function graphResolvePalette(element) {
+      const palette = { ...GRAPH_COLORS_FALLBACK }
+      if (!element || typeof window.getComputedStyle !== 'function') return palette
+      let styles
+      try {
+        styles = window.getComputedStyle(element)
+      } catch {
+        return palette
+      }
+      for (const [key, variable] of Object.entries(GRAPH_PALETTE)) {
+        const value = String(styles.getPropertyValue(variable) ?? '').trim()
+        if (value !== '') palette[key] = value
+      }
+      return palette
     }
 
     function fileResourceAddress(sessionId, path) {
@@ -1524,6 +2121,8 @@ window.__ModuleLoader__.load({
       'transcripts.import': 300000,
       'vocab.analyze': 180000,
       'env.check': 15000,
+      // Host 侧 graph.overview 预算同为 30s：构建是纯计算且有限额，30s 足够。
+      'graph.overview': 30000,
     }
     const API_DEDUPE_ACTIONS = new Set([
       'transcripts.list',
@@ -1534,6 +2133,7 @@ window.__ModuleLoader__.load({
       'lookup',
       'env.check',
       'recall.overview',
+      'graph.overview',
     ])
     const ERROR_MESSAGE_KEYS = {
       'http/method': 'error.httpMethod',
@@ -1845,6 +2445,7 @@ window.__ModuleLoader__.load({
         recallOverview: (signal) => call('recall.overview', {}, { signal }),
         recallGrade: (payload, signal) => call('recall.grade', payload, { signal, dedupe: false }),
         recallReset: (payload, signal) => call('recall.reset', payload, { signal, dedupe: false }),
+        graphOverview: (signal) => call('graph.overview', {}, { signal }),
 
         pickDirectory: () => ctx.uiWorkspace.pickDirectory(),
         openFile: (path) => ctx.sidebarRight.openResource(fileResourceAddress(sessionId, path)),
@@ -1986,7 +2587,7 @@ window.__ModuleLoader__.load({
       if (popup.kind === 'sentence') {
         return h('div', { className: 'egl-pop-body' }, result.translation ?? '')
       }
-      const meanings = Array.isArray(result.meanings) ? result.meanings : []
+      const meanings = collapseMeanings(result.meanings)
       return h('div', { className: 'egl-pop-body' },
         h('div', { className: 'egl-ipa' }, result.ipa || t('popup.noIpa')),
         meanings.length > 0
@@ -2033,6 +2634,7 @@ window.__ModuleLoader__.load({
       const pending = entry.status === 'pending'
       const full = detail !== 'simple'
       const family = isWord && Array.isArray(entry.family) ? entry.family : []
+      const meanings = isWord ? collapseMeanings(entry.meanings) : []
       const etymology = isWord && entry.etymology && typeof entry.etymology === 'object' ? entry.etymology : undefined
       const etymologyParts = etymology && Array.isArray(etymology.parts) ? etymology.parts : []
       const hasEtymology = etymology !== undefined && (etymologyParts.length > 0 || Boolean(etymology.explanation))
@@ -2044,8 +2646,8 @@ window.__ModuleLoader__.load({
           h('span', { className: 'egl-chip' + (pending ? ' is-pending' : '') }, pending ? t('vocab.pending') : t('vocab.done'))
         ),
         isWord
-          ? (Array.isArray(entry.meanings) && entry.meanings.length > 0
-              ? entry.meanings.map((meaning, index) => {
+          ? (meanings.length > 0
+              ? meanings.map((meaning, index) => {
                   if (!meaning || typeof meaning !== 'object') return null
                   const example = typeof meaning.example === 'string' ? meaning.example.trim() : ''
                   const source = meaning.source && typeof meaning.source === 'object' ? meaning.source : undefined
@@ -2220,7 +2822,7 @@ window.__ModuleLoader__.load({
 
 
     // ═══════════════════════════════════════════════════════════════════
-    // §6 hooks（usePolling / useSelectionLookup / useTranscript）
+    // §6 hooks（usePolling / useSelectionLookup / useTranscript / useGraphCanvas）
     // 符号表：
     //   usePolling(task, options) — 统一轮询：in-flight 守卫、document.hidden 跳过、
     //       失败指数退避、visibilitychange 唤醒、task 返回 { done:true } 即停、
@@ -2455,8 +3057,511 @@ window.__ModuleLoader__.load({
     }
 
 
+    /**
+     * Canvas force-graph controller for the graph view.
+     *
+     * Owns: the deterministic simulation, the view transform (pan/zoom), the
+     * animation loop, pointer gestures and drawing. The component owns the
+     * chrome (filters, search, legend, detail panel) and passes the derived
+     * payload down; the hook reads the latest props through a ref so selection
+     * and filter changes never restart the layout.
+     *
+     * Returns imperative helpers so the toolbar can zoom / reset / centre a
+     * node found by the search box.
+     */
+    function useGraphCanvas(options) {
+      const canvasRef = options.canvasRef
+      const containerRef = options.containerRef
+      const data = options.data
+      const selectedId = options.selectedId
+      const filter = options.filter
+      const search = options.search
+      const onSelect = options.onSelect
+
+      const frameRef = useRef(0)
+      const simRef = useRef(null)
+      const viewRef = useRef({ scale: 1, tx: 0, ty: 0 })
+      const sizeRef = useRef({ width: 0, height: 0, dpr: 1 })
+      const paletteRef = useRef(GRAPH_COLORS_FALLBACK)
+      const dragRef = useRef(null)
+      const propsRef = useRef({ selectedId: null, filter: 'all', search: '', onSelect: null, data: null })
+      const dataRef = useRef(null)
+      const scheduleRef = useRef(() => {})
+      const rebuildRef = useRef(() => {})
+      const apiRef = useRef({
+        zoomIn: () => {},
+        zoomOut: () => {},
+        resetView: () => {},
+        centerOn: () => {},
+      })
+
+      propsRef.current = { selectedId, filter, search, onSelect, data }
+      dataRef.current = data
+
+      // scopeKey 让「只看一篇文稿」在节点数恰好相同时也能重建布局。
+      const scopeKey = options.scopeKey
+      const signature = data && typeof data === 'object'
+        ? String(data.generatedAt ?? '') + '|' + String(Array.isArray(data.nodes) ? data.nodes.length : 0) + '|' + String(Array.isArray(data.links) ? data.links.length : 0) + '|' + String(scopeKey ?? '')
+        : ''
+
+      useEffect(() => {
+        const canvas = canvasRef.current
+        const container = containerRef.current
+        if (!canvas || !container) return undefined
+        let disposed = false
+        let reduced = false
+        try {
+          reduced = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        } catch {
+          reduced = false
+        }
+        const raf = typeof window.requestAnimationFrame === 'function'
+          ? window.requestAnimationFrame.bind(window)
+          : (callback) => window.setTimeout(callback, 16)
+        const caf = typeof window.cancelAnimationFrame === 'function'
+          ? window.cancelAnimationFrame.bind(window)
+          : (handle) => window.clearTimeout(handle)
+
+        function measure() {
+          const rect = container.getBoundingClientRect()
+          return {
+            width: Math.max(0, Math.round(rect.width)),
+            height: Math.max(0, Math.round(rect.height)),
+            dpr: Math.min(2.5, Math.max(1, Number(window.devicePixelRatio) || 1)),
+          }
+        }
+
+        function applyCanvasSize() {
+          const size = measure()
+          const previous = sizeRef.current
+          const changed = size.width !== previous.width || size.height !== previous.height || size.dpr !== previous.dpr
+          sizeRef.current = size
+          if (size.width > 0 && size.height > 0) {
+            const pixelWidth = Math.round(size.width * size.dpr)
+            const pixelHeight = Math.round(size.height * size.dpr)
+            if (canvas.width !== pixelWidth) canvas.width = pixelWidth
+            if (canvas.height !== pixelHeight) canvas.height = pixelHeight
+          }
+          return changed
+        }
+
+        function worldPoint(clientX, clientY) {
+          const rect = canvas.getBoundingClientRect()
+          const view = viewRef.current
+          return {
+            x: (clientX - rect.left - view.tx) / view.scale,
+            y: (clientY - rect.top - view.ty) / view.scale,
+          }
+        }
+
+        function hitTest(clientX, clientY) {
+          const sim = simRef.current
+          if (sim === null) return null
+          const point = worldPoint(clientX, clientY)
+          const tolerance = 6 / viewRef.current.scale
+          let best = null
+          let bestDistance = Infinity
+          for (const node of sim.nodes) {
+            const radius = graphNodeRadius(node) + tolerance
+            const dx = point.x - node.x
+            const dy = point.y - node.y
+            const distance = Math.sqrt(dx * dx + dy * dy)
+            if (distance <= radius && distance < bestDistance) {
+              best = node
+              bestDistance = distance
+            }
+          }
+          return best
+        }
+
+        function draw() {
+          const context = typeof canvas.getContext === 'function' ? canvas.getContext('2d') : null
+          const size = sizeRef.current
+          if (context === null || size.width < 4 || size.height < 4) return
+          const view = viewRef.current
+          const palette = paletteRef.current
+          const sim = simRef.current
+          const payload = propsRef.current.data
+          context.setTransform(size.dpr, 0, 0, size.dpr, 0, 0)
+          context.clearRect(0, 0, size.width, size.height)
+          if (sim === null || payload === null || typeof payload !== 'object') return
+          const links = Array.isArray(payload.links) ? payload.links : []
+          const selected = propsRef.current.selectedId
+          const activeFilter = propsRef.current.filter
+          const query = propsRef.current.search
+          const searching = String(query ?? '').trim() !== ''
+          const neighbors = selected ? graphNeighbors(links, selected) : null
+          const visibleDegrees = graphVisibleDegrees(links, activeFilter)
+          const totalNodes = sim.nodes.length
+          const showAllLabels = totalNodes <= 60
+          const isDimmedNode = (node) => {
+            if (neighbors !== null && node.id !== selected && !neighbors.has(node.id)) return true
+            if (searching && !graphMatchesQuery(node, query)) return true
+            if (activeFilter !== 'all' && (visibleDegrees.get(node.id) ?? 0) === 0) return true
+            return false
+          }
+
+          context.save()
+          context.translate(view.tx, view.ty)
+          context.scale(view.scale, view.scale)
+
+          for (const simLink of sim.links) {
+            const link = simLink.link
+            if (!graphLinkVisible(link.kind, activeFilter)) continue
+            let alpha = link.kind === 'appears' ? 0.55 : 0.5
+            if (neighbors !== null && link.source !== selected && link.target !== selected) {
+              alpha = 0.1
+            } else if (searching && !(graphMatchesQuery(simLink.source, query) || graphMatchesQuery(simLink.target, query))) {
+              alpha = 0.1
+            }
+            context.globalAlpha = alpha
+            context.strokeStyle = palette[link.kind] ?? palette.appears
+            if (link.kind === 'appears') {
+              context.lineWidth = link.origin === true ? 1.5 : 1
+              context.setLineDash(link.origin === true ? [] : [3, 3])
+            } else if (link.kind === 'morph') {
+              context.lineWidth = 1.2
+              context.setLineDash([5, 3])
+            } else if (link.kind === 'sense') {
+              context.lineWidth = 1.2
+              context.setLineDash([1, 3])
+            } else {
+              context.lineWidth = 1
+              context.setLineDash([])
+            }
+            context.beginPath()
+            context.moveTo(simLink.source.x, simLink.source.y)
+            context.lineTo(simLink.target.x, simLink.target.y)
+            context.stroke()
+          }
+          context.setLineDash([])
+
+          for (const node of sim.nodes) {
+            const dimmed = isDimmedNode(node)
+            const radius = graphNodeRadius(node)
+            context.globalAlpha = dimmed ? 0.18 : 1
+            context.fillStyle = node.kind === 'transcript' ? palette.transcript : palette.word
+            context.beginPath()
+            context.arc(node.x, node.y, radius, 0, Math.PI * 2)
+            context.fill()
+            if (node.kind === 'word' && node.mastery > 0) {
+              context.strokeStyle = palette.mastery
+              context.lineWidth = 1.6
+              context.beginPath()
+              context.arc(
+                node.x,
+                node.y,
+                radius + 3,
+                -Math.PI / 2,
+                -Math.PI / 2 + (Math.PI * 2 * Math.min(5, node.mastery)) / 5,
+              )
+              context.stroke()
+            }
+            if (node.id === selected) {
+              context.strokeStyle = palette.text
+              context.lineWidth = 1.5
+              context.beginPath()
+              context.arc(node.x, node.y, radius + 5, 0, Math.PI * 2)
+              context.stroke()
+            }
+          }
+
+          context.globalAlpha = 1
+          context.textBaseline = 'middle'
+          for (const node of sim.nodes) {
+            const dimmed = isDimmedNode(node)
+            const important = node.id === selected
+              || (neighbors !== null && neighbors.has(node.id))
+              || (searching && graphMatchesQuery(node, query))
+            if (!showAllLabels && !important) continue
+            const label = graphNodeLabel(node, node.kind === 'transcript' ? 18 : 20)
+            if (label === '') continue
+            context.font = (node.kind === 'transcript' ? '600 ' : '') + '10px ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif'
+            const width = context.measureText(label).width
+            const x = node.x
+            const y = node.y + graphNodeRadius(node) + 8
+            if (node.kind === 'transcript') {
+              context.globalAlpha = dimmed ? 0.25 : 0.85
+              context.fillStyle = palette.halo
+              if (typeof context.roundRect === 'function') {
+                context.beginPath()
+                context.roundRect(x - width / 2 - 3, y - 7, width + 6, 14, 4)
+                context.fill()
+              } else {
+                context.fillRect(x - width / 2 - 3, y - 7, width + 6, 14)
+              }
+            }
+            context.globalAlpha = dimmed ? 0.35 : 1
+            context.fillStyle = palette.text
+            context.textAlign = 'center'
+            context.fillText(label, x, y)
+          }
+          context.restore()
+          context.globalAlpha = 1
+          context.setLineDash([])
+        }
+
+        function tick() {
+          frameRef.current = 0
+          if (disposed) return
+          const sim = simRef.current
+          if (sim !== null && !sim.settled && document.hidden !== true) {
+            graphStepSim(sim)
+            schedule()
+          }
+          draw()
+        }
+
+        function schedule() {
+          if (disposed || frameRef.current !== 0) return
+          frameRef.current = raf(tick)
+        }
+
+        function zoomBy(factor) {
+          const size = sizeRef.current
+          const view = viewRef.current
+          const next = Math.min(GRAPH_MAX_SCALE, Math.max(GRAPH_MIN_SCALE, view.scale * factor))
+          if (next === view.scale) return
+          const ratio = next / view.scale
+          const cx = size.width / 2
+          const cy = size.height / 2
+          viewRef.current = { scale: next, tx: cx - (cx - view.tx) * ratio, ty: cy - (cy - view.ty) * ratio }
+          schedule()
+        }
+
+        function resetView() {
+          const sim = simRef.current
+          const size = sizeRef.current
+          if (sim === null) return
+          viewRef.current = graphFitView(sim, size.width, size.height)
+          schedule()
+        }
+
+        function centerOn(id) {
+          const sim = simRef.current
+          const size = sizeRef.current
+          if (sim === null) return
+          const node = sim.byId.get(String(id ?? ''))
+          if (node === undefined) return
+          const scale = viewRef.current.scale
+          viewRef.current = {
+            scale,
+            tx: size.width / 2 - node.x * scale,
+            ty: size.height / 2 - node.y * scale,
+          }
+          schedule()
+        }
+
+        function rebuild() {
+          if (disposed) return
+          const size = sizeRef.current
+          const payload = dataRef.current
+          if (size.width < 4 || size.height < 4 || payload === null || typeof payload !== 'object') {
+            simRef.current = null
+            return
+          }
+          paletteRef.current = graphResolvePalette(canvas)
+          const previous = simRef.current
+          const previousPositions = new Map()
+          if (previous !== null) {
+            for (const node of previous.nodes) previousPositions.set(node.id, { x: node.x, y: node.y })
+          }
+          const sim = graphCreateSim(payload, size.width, size.height)
+          for (const node of sim.nodes) {
+            const old = previousPositions.get(node.id)
+            if (old !== undefined) {
+              node.x = old.x
+              node.y = old.y
+            }
+          }
+          simRef.current = sim
+          viewRef.current = graphFitView(sim, size.width, size.height)
+          if (reduced) {
+            const settleSteps = sim.nodes.length > 120 ? 200 : 400
+            for (let step = 0; step < settleSteps && !sim.settled; step += 1) graphStepSim(sim)
+            draw()
+            return
+          }
+          schedule()
+        }
+
+        apiRef.current.zoomIn = () => zoomBy(1.25)
+        apiRef.current.zoomOut = () => zoomBy(0.8)
+        apiRef.current.resetView = resetView
+        apiRef.current.centerOn = centerOn
+        scheduleRef.current = schedule
+        rebuildRef.current = rebuild
+
+        function onPointerDown(event) {
+          if (event.button !== undefined && event.button !== 0 && event.pointerType === 'mouse') return
+          const node = hitTest(event.clientX, event.clientY)
+          const view = viewRef.current
+          if (node !== null) {
+            node.fixed = true
+            dragRef.current = {
+              mode: 'node',
+              node,
+              offsetX: worldPoint(event.clientX, event.clientY).x - node.x,
+              offsetY: worldPoint(event.clientX, event.clientY).y - node.y,
+              startX: event.clientX,
+              startY: event.clientY,
+              moved: false,
+              pointerId: event.pointerId,
+            }
+            canvas.classList.add('is-dragging')
+            if (typeof canvas.setPointerCapture === 'function') {
+              try {
+                canvas.setPointerCapture(event.pointerId)
+              } catch {
+                // capture is best effort
+              }
+            }
+            if (typeof propsRef.current.onSelect === 'function') propsRef.current.onSelect(node.id)
+            event.preventDefault()
+            return
+          }
+          dragRef.current = {
+            mode: 'pan',
+            startX: event.clientX,
+            startY: event.clientY,
+            tx: view.tx,
+            ty: view.ty,
+            moved: false,
+            pointerId: event.pointerId,
+          }
+          canvas.classList.add('is-dragging')
+          if (typeof canvas.setPointerCapture === 'function') {
+            try {
+              canvas.setPointerCapture(event.pointerId)
+            } catch {
+              // capture is best effort
+            }
+          }
+        }
+
+        function onPointerMove(event) {
+          const drag = dragRef.current
+          if (drag === null) return
+          if (drag.mode === 'node') {
+            const point = worldPoint(event.clientX, event.clientY)
+            const size = sizeRef.current
+            drag.node.x = Math.min(size.width - 10, Math.max(10, point.x - drag.offsetX))
+            drag.node.y = Math.min(size.height - 10, Math.max(10, point.y - drag.offsetY))
+            drag.moved = true
+            graphReheat(simRef.current)
+            schedule()
+            event.preventDefault()
+            return
+          }
+          const dx = event.clientX - drag.startX
+          const dy = event.clientY - drag.startY
+          if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true
+          viewRef.current = { scale: viewRef.current.scale, tx: drag.tx + dx, ty: drag.ty + dy }
+          schedule()
+        }
+
+        function onPointerUp(event) {
+          const drag = dragRef.current
+          dragRef.current = null
+          canvas.classList.remove('is-dragging')
+          if (typeof canvas.releasePointerCapture === 'function') {
+            try {
+              canvas.releasePointerCapture(event.pointerId)
+            } catch {
+              // already released
+            }
+          }
+          if (drag === null) return
+          if (drag.mode === 'node') {
+            drag.node.fixed = false
+            // A plain click selects and must not reheat the layout; a real drag settles again.
+            if (drag.moved === true) {
+              graphReheat(simRef.current)
+              schedule()
+            } else {
+              draw()
+            }
+            return
+          }
+          if (drag.moved !== true && typeof propsRef.current.onSelect === 'function') propsRef.current.onSelect(null)
+        }
+
+        function onWheel(event) {
+          event.preventDefault()
+          const rect = canvas.getBoundingClientRect()
+          const cx = event.clientX - rect.left
+          const cy = event.clientY - rect.top
+          const view = viewRef.current
+          const factor = Math.exp(-event.deltaY * 0.0015)
+          const next = Math.min(GRAPH_MAX_SCALE, Math.max(GRAPH_MIN_SCALE, view.scale * factor))
+          if (next === view.scale) return
+          const ratio = next / view.scale
+          viewRef.current = { scale: next, tx: cx - (cx - view.tx) * ratio, ty: cy - (cy - view.ty) * ratio }
+          schedule()
+        }
+
+        function onVisibility() {
+          if (document.hidden !== true) schedule()
+        }
+
+        function onResize() {
+          const changed = applyCanvasSize()
+          if (!changed) return
+          if (simRef.current === null) {
+            rebuild()
+            return
+          }
+          viewRef.current = graphFitView(simRef.current, sizeRef.current.width, sizeRef.current.height)
+          schedule()
+        }
+
+        canvas.addEventListener('pointerdown', onPointerDown)
+        canvas.addEventListener('pointermove', onPointerMove)
+        canvas.addEventListener('pointerup', onPointerUp)
+        canvas.addEventListener('pointercancel', onPointerUp)
+        canvas.addEventListener('wheel', onWheel, { passive: false })
+        document.addEventListener('visibilitychange', onVisibility)
+        let observer
+        if (typeof ResizeObserver === 'function') {
+          observer = new ResizeObserver(onResize)
+          observer.observe(container)
+        } else {
+          window.addEventListener('resize', onResize)
+        }
+        applyCanvasSize()
+        rebuild()
+
+        return () => {
+          disposed = true
+          if (frameRef.current !== 0) {
+            caf(frameRef.current)
+            frameRef.current = 0
+          }
+          canvas.removeEventListener('pointerdown', onPointerDown)
+          canvas.removeEventListener('pointermove', onPointerMove)
+          canvas.removeEventListener('pointerup', onPointerUp)
+          canvas.removeEventListener('pointercancel', onPointerUp)
+          canvas.removeEventListener('wheel', onWheel)
+          document.removeEventListener('visibilitychange', onVisibility)
+          if (observer !== undefined) observer.disconnect()
+          else window.removeEventListener('resize', onResize)
+          canvas.classList.remove('is-dragging')
+        }
+      }, [canvasRef, containerRef])
+
+      useEffect(() => {
+        rebuildRef.current()
+      }, [signature])
+
+      useEffect(() => {
+        scheduleRef.current()
+      }, [selectedId, filter, search])
+
+      return apiRef.current
+    }
+
     // ═══════════════════════════════════════════════════════════════════
-    // §7 视图（转写面板、任务条、文稿、PDF、生词本、背记、环境自检卡）
+    // §7 视图（转写面板、任务条、文稿、PDF、生词本、背记、图谱、环境自检卡）
     // 符号表：
     //   TranscribePanel — 录音选择 + 路径扫描 + 模型/说话人数
     //   JobBar — 转写任务状态条（失败可重试）
@@ -2921,7 +4026,7 @@ window.__ModuleLoader__.load({
         return () => window.removeEventListener('keydown', onKeyDown)
       }, [phase, grade, recommended])
 
-      const meanings = Array.isArray(item.meanings) ? item.meanings : []
+      const meanings = collapseMeanings(item.meanings)
       const family = Array.isArray(item.family) ? item.family : []
       const mastery = Math.min(5, Math.max(0, Number(item.mastery) || 0))
       const answered = String(answer ?? '').trim()
@@ -3347,16 +4452,378 @@ window.__ModuleLoader__.load({
     }
 
 
+    // ── 图谱（graph）视图 ─────────────────────────────────────────────
+    const GRAPH_KIND_LABEL_KEYS = {
+      word: 'graph.kindWord',
+      transcript: 'graph.kindTranscript',
+    }
+    const GRAPH_REL_KIND_KEYS = {
+      appears: 'graph.legendAppears',
+      cooccur: 'graph.legendCooccur',
+      morph: 'graph.legendMorph',
+      sense: 'graph.legendSense',
+    }
+    const GRAPH_REL_SORT = { cooccur: 0, morph: 1, sense: 2 }
+
+    /** 掌握度弧环的 DOM 版本（详情面板里与画布上的环一致）。 */
+    function GraphMastery({ t, mastery }) {
+      const value = Math.min(5, Math.max(0, Math.trunc(Number(mastery) || 0)))
+      if (value <= 0) return null
+      return h('span', { className: 'egl-graph-progress', title: t('graph.mastery', { n: String(value) }) },
+        Array.from({ length: 5 }, (_, index) => h('span', {
+          key: String(index),
+          className: 'egl-graph-progressseg' + (index < value ? ' is-on' : ''),
+        })))
+    }
+
+    /** 单词-单词联系的展示文案（同句次数 / 同根 / 同族 / 近义）。 */
+    function graphRelationLabel(t, link) {
+      if (link.kind === 'cooccur') return t('graph.sharedSentences', { n: String(Math.max(0, Math.trunc(Number(link.sentences) || 0))) })
+      if (link.kind === 'morph') {
+        return link.reason === 'family'
+          ? t('graph.morphFamily', { detail: String(link.detail ?? '') })
+          : t('graph.morphRoot', { detail: String(link.detail ?? '') })
+      }
+      if (link.kind === 'sense') return t('graph.sense', { detail: String(link.detail ?? '') })
+      return ''
+    }
+
+    /** 详情面板：未选中给提示，选中给单词/文稿的关系清单与动作。 */
+    function GraphDetail({ t, graph, node, onSelect, onOpenTranscript, onScopeFile }) {
+      const nodes = Array.isArray(graph?.nodes) ? graph.nodes : []
+      const links = Array.isArray(graph?.links) ? graph.links : []
+      const close = h('button', {
+        type: 'button',
+        className: 'egl-graph-close',
+        'aria-label': t('graph.close'),
+        title: t('graph.close'),
+        onClick: () => onSelect(null),
+      }, '×')
+      if (node === null || node === undefined) {
+        const summary = graph?.summary && typeof graph.summary === 'object' ? graph.summary : {}
+        const linkCount = summary.links && typeof summary.links === 'object' ? Math.max(0, Math.floor(Number(summary.links.total) || 0)) : 0
+        return h('div', null,
+          h('div', { className: 'egl-graph-meta' }, t('graph.summary', {
+            words: String(Math.max(0, Math.floor(Number(summary.words) || 0))),
+            transcripts: String(Math.max(0, Math.floor(Number(summary.transcripts) || 0))),
+            links: String(linkCount),
+          })),
+          h('div', { className: 'egl-empty' }, t('graph.detailEmpty')),
+          h('div', { className: 'egl-muted', style: { fontSize: 11, padding: '0 4px 4px', lineHeight: 1.6 } }, t('graph.hint'))
+        )
+      }
+      const nodeById = new Map(nodes.map((item) => [item.id, item]))
+      if (node.kind === 'word') {
+        const meanings = collapseMeanings(node.meanings)
+        const appears = links
+          .filter((link) => link.kind === 'appears' && link.target === node.id)
+          .sort((left, right) => (
+            Number(right.origin === true) - Number(left.origin === true)
+            || (Number(right.count) || 0) - (Number(left.count) || 0)
+            || String(left.source).localeCompare(String(right.source))
+          ))
+        const related = links
+          .filter((link) => link.kind !== 'appears' && (link.source === node.id || link.target === node.id))
+          .map((link) => ({ link, other: nodeById.get(link.source === node.id ? link.target : link.source) }))
+          .filter((row) => row.other !== undefined)
+          .sort((left, right) => (
+            (GRAPH_REL_SORT[left.link.kind] ?? 9) - (GRAPH_REL_SORT[right.link.kind] ?? 9)
+            || String(left.other.word ?? '').localeCompare(String(right.other.word ?? ''))
+          ))
+        return h(React.Fragment, null,
+          h('div', { className: 'egl-graph-detailhead' },
+            h('span', { className: 'egl-graph-kind' }, t(GRAPH_KIND_LABEL_KEYS.word)),
+            h('span', { className: 'egl-graph-title' }, String(node.word ?? '')),
+            node.ipa ? h('span', { className: 'egl-ipa' }, String(node.ipa)) : null,
+            close
+          ),
+          h('div', { className: 'egl-graph-meta' },
+            t('graph.mastery', { n: String(Math.min(5, Math.max(0, Math.trunc(Number(node.mastery) || 0)))) }),
+            h(GraphMastery, { t, mastery: node.mastery })
+          ),
+          meanings.length > 0
+            ? h('div', { className: 'egl-graph-meanings' }, meanings.map((meaning, index) => h('div', { key: String(index), className: 'egl-meaning' },
+              meaning.pos ? h('span', { className: 'egl-pos' }, String(meaning.pos)) : null,
+              String(meaning.zh ?? '')
+            )))
+            : h('div', { className: 'egl-muted' }, t('graph.noMeaning')),
+          node.sentence ? h('div', { className: 'egl-graph-example' },
+            h('div', { className: 'egl-pos', style: { marginRight: 0 } }, t('graph.sentence')),
+            String(node.sentence)
+          ) : null,
+          h('div', { className: 'egl-graph-section' }, t('graph.relations')),
+          appears.length === 0 && related.length === 0
+            ? h('div', { className: 'egl-muted' }, t('graph.noRelations'))
+            : null,
+          appears.map((link) => {
+            const transcript = nodeById.get(link.source)
+            const title = transcript ? String(transcript.title ?? transcript.file ?? '') : String(link.source)
+            return h(React.Fragment, { key: link.id },
+              h('div', { className: 'egl-graph-rel', role: 'group' },
+                h('span', { className: 'egl-graph-relkind' }, link.origin === true ? t('graph.origin') : t('graph.legendAppears')),
+                h('span', { className: 'egl-graph-reltext' }, title),
+                h('span', { className: 'egl-graph-relcount' }, t('graph.occurrences', { n: String(Math.max(0, Math.trunc(Number(link.count) || 0))) })),
+                transcript && onOpenTranscript
+                  ? h('button', { type: 'button', className: 'egl-graph-scopebtn', onClick: () => onOpenTranscript(transcript.file) }, t('graph.openTranscript'))
+                  : null
+              ),
+              link.sample && link.sample.text
+                ? h('div', { className: 'egl-graph-sample' }, String(link.sample.text))
+                : null
+            )
+          }),
+          related.map((row) => h('button', {
+            key: row.link.id,
+            type: 'button',
+            className: 'egl-graph-rel',
+            onClick: () => onSelect(row.other.id),
+          },
+            h('span', { className: 'egl-graph-relkind' }, t(GRAPH_REL_KIND_KEYS[row.link.kind] ?? 'graph.legendCooccur')),
+            h('span', { className: 'egl-graph-reltext' }, String(row.other.word ?? '')),
+            h('span', { className: 'egl-graph-relcount' }, graphRelationLabel(t, row.link))
+          ))
+        )
+      }
+      const appears = links
+        .filter((link) => link.kind === 'appears' && link.source === node.id)
+        .map((link) => ({ link, word: nodeById.get(link.target) }))
+        .filter((row) => row.word !== undefined)
+        .sort((left, right) => (
+          (Number(right.link.count) || 0) - (Number(left.link.count) || 0)
+          || String(left.word.word ?? '').localeCompare(String(right.word.word ?? ''))
+        ))
+      return h(React.Fragment, null,
+        h('div', { className: 'egl-graph-detailhead' },
+          h('span', { className: 'egl-graph-kind' }, t(GRAPH_KIND_LABEL_KEYS.transcript)),
+          h('span', { className: 'egl-graph-title' }, String(node.title ?? node.file ?? '')),
+          close
+        ),
+        h('div', { className: 'egl-graph-meta' }, t('graph.transcriptMeta', {
+          segments: String(Math.max(0, Math.trunc(Number(node.segments) || 0))),
+          duration: fmtClock(Number(node.durationMs) || 0),
+          speakers: String(Math.max(0, Math.trunc(Number(node.speakers) || 0))),
+        })),
+        h('div', { className: 'egl-graph-meta' }, t('graph.matchedWords', { n: String(appears.length) })),
+        h('div', { className: 'egl-graph-actionrow' },
+          onOpenTranscript
+            ? h('button', { type: 'button', className: 'egl-btn', onClick: () => onOpenTranscript(node.file) }, t('graph.openTranscript'))
+            : null,
+          onScopeFile
+            ? h('button', { type: 'button', className: 'egl-btn', onClick: () => onScopeFile(node.file) }, t('graph.scopeTranscript'))
+            : null
+        ),
+        h('div', { className: 'egl-graph-section' }, t('graph.relations')),
+        appears.length === 0
+          ? h('div', { className: 'egl-muted' }, t('graph.noRelations'))
+          : null,
+        appears.map((row) => h('button', {
+          key: row.link.id,
+          type: 'button',
+          className: 'egl-graph-rel',
+          onClick: () => onSelect(row.word.id),
+        },
+          h('span', { className: 'egl-graph-relkind' }, row.link.origin === true ? t('graph.origin') : t('graph.legendWord')),
+          h('span', { className: 'egl-graph-reltext' }, String(row.word.word ?? '')),
+          h('span', { className: 'egl-graph-relcount' }, t('graph.occurrences', { n: String(Math.max(0, Math.trunc(Number(row.link.count) || 0))) }))
+        ))
+      )
+    }
+
+    /**
+     * 图谱视图：工具行（筛选 / 搜索 / 缩放复位）+ 画布 + 图例 + 详情。
+     * 画布与交互全部由 §6 useGraphCanvas 负责；本组件只做数据派生与 DOM 结构。
+     */
+    function GraphView(props) {
+      const {
+        t, graph, loading, error, filter, onFilter, search, onSearch,
+        selected, onSelect, onRefresh, onOpenTranscript, scopeFile, onScopeFile, onClearScope,
+      } = props
+      const canvasRef = useRef(null)
+      const containerRef = useRef(null)
+      const scoped = useMemo(() => graphScopedData(graph, scopeFile), [graph, scopeFile])
+      const nodes = Array.isArray(scoped?.nodes) ? scoped.nodes : []
+      const links = Array.isArray(scoped?.links) ? scoped.links : []
+      const selectedNode = selected ? nodes.find((node) => node.id === selected) ?? null : null
+      const canvasApi = useGraphCanvas({
+        canvasRef,
+        containerRef,
+        data: scoped ?? null,
+        scopeKey: scopeFile,
+        // 选中节点可能被当前范围排除：此时不高亮/压暗，避免整张图被压暗。
+        selectedId: selectedNode !== null ? selected : null,
+        filter,
+        search,
+        onSelect,
+      })
+      const summary = graph?.summary && typeof graph.summary === 'object' ? graph.summary : {}
+      const results = String(search ?? '').trim() === '' ? [] : graphSearchNodes(nodes, search)
+      const wordCount = Math.max(0, Math.floor(Number(summary.words) || 0))
+      const transcriptCount = Math.max(0, Math.floor(Number(summary.transcripts) || 0))
+      const isolated = Math.max(0, Math.floor(Number(summary.isolatedWords) || 0))
+      const truncated = summary.truncated && typeof summary.truncated === 'object' ? summary.truncated : {}
+      const truncatedWords = Math.max(0, Math.floor(Number(truncated.words) || 0))
+      const truncatedTranscripts = Math.max(0, Math.floor(Number(truncated.transcripts) || 0))
+      const hasWords = wordCount > 0
+      const hasTranscripts = transcriptCount > 0
+      const hasLinks = links.length > 0
+      const scopeTitle = (() => {
+        if (typeof scopeFile !== 'string' || scopeFile === '') return ''
+        const found = nodes.find((node) => node.kind === 'transcript' && node.file === scopeFile)
+        return found ? String(found.title ?? found.file ?? '') : scopeFile
+      })()
+
+      const filterTabs = h('div', { className: 'egl-tabs', role: 'group', 'aria-label': t('graph.filter') },
+        [['all', t('graph.filterAll')], ['doc', t('graph.filterDoc')], ['word', t('graph.filterWord')]]
+          .map(([value, label]) => h('button', {
+            key: value,
+            type: 'button',
+            role: 'tab',
+            'aria-selected': filter === value,
+            className: 'egl-tab' + (filter === value ? ' is-on' : ''),
+            onClick: () => onFilter(value),
+          }, label))
+      )
+
+      const searchInput = h('input', {
+        className: 'egl-input egl-graph-search',
+        type: 'search',
+        placeholder: t('graph.search'),
+        'aria-label': t('graph.search'),
+        value: search,
+        onChange: (event) => onSearch(event.target.value),
+      })
+
+      const actions = h('div', { className: 'egl-graph-actions' },
+        h('button', {
+          type: 'button',
+          className: 'egl-btn egl-graph-zoom',
+          'aria-label': t('graph.zoomIn'),
+          title: t('graph.zoomIn'),
+          onClick: () => canvasApi.zoomIn(),
+        }, '+'),
+        h('button', {
+          type: 'button',
+          className: 'egl-btn egl-graph-zoom',
+          'aria-label': t('graph.zoomOut'),
+          title: t('graph.zoomOut'),
+          onClick: () => canvasApi.zoomOut(),
+        }, '−'),
+        h('button', { type: 'button', className: 'egl-btn', onClick: () => canvasApi.resetView() }, t('graph.resetView'))
+      )
+
+      const scope = typeof scopeFile === 'string' && scopeFile !== ''
+        ? h('div', { className: 'egl-graph-scope' },
+          h('span', { className: 'egl-graph-scopetext' }, t('graph.scopeChip', { title: scopeTitle })),
+          h('button', { type: 'button', className: 'egl-graph-scopebtn', onClick: onClearScope }, t('graph.clearScope'))
+        )
+        : null
+
+      const resultsList = String(search ?? '').trim() !== '' && hasWords
+        ? h('div', { className: 'egl-graph-results', 'aria-label': t('graph.searchResults') },
+          results.length === 0
+            ? h('div', { className: 'egl-muted' }, t('graph.searchEmpty'))
+            : results.map((node) => h('button', {
+              key: node.id,
+              type: 'button',
+              className: 'egl-graph-result',
+              onClick: () => {
+                onSelect(node.id)
+                canvasApi.centerOn(node.id)
+              },
+            },
+              h('span', { className: 'egl-graph-kind' }, t(GRAPH_KIND_LABEL_KEYS[node.kind] ?? 'graph.kindWord')),
+              h('span', { className: 'egl-graph-result-label' }, node.kind === 'transcript'
+                ? String(node.title ?? node.file ?? '')
+                : String(node.word ?? ''))
+            )))
+        : null
+
+      const banners = []
+      if (error !== '' && graph !== null) {
+        banners.push(h('div', { key: 'error', className: 'egl-graph-banner' },
+          h('span', null, error),
+          h('button', { type: 'button', className: 'egl-graph-scopebtn', style: { marginLeft: 8 }, onClick: onRefresh }, t('graph.retry'))
+        ))
+      }
+      if (truncatedWords > 0 || truncatedTranscripts > 0) {
+        banners.push(h('div', { key: 'truncated', className: 'egl-graph-banner' }, t('graph.truncated', {
+          words: String(wordCount),
+          transcripts: String(transcriptCount),
+        })))
+      }
+      if (isolated > 0 && !scopeTitle) {
+        banners.push(h('div', { key: 'isolated', className: 'egl-graph-banner' }, t('graph.isolated', { n: String(isolated) })))
+      }
+
+      const legend = h('div', { className: 'egl-graph-legend', 'aria-label': t('graph.legendTitle') },
+        h('span', { className: 'egl-graph-key' },
+          h('span', { className: 'egl-graph-dot', style: { background: 'var(--dsw-alias-brand-primary)' } }),
+          t('graph.legendWord')),
+        h('span', { className: 'egl-graph-key' },
+          h('span', { className: 'egl-graph-dot', style: { background: 'var(--dsw-alias-state-warn-primary)' } }),
+          t('graph.legendTranscript')),
+        h('span', { className: 'egl-graph-key' },
+          h('span', { className: 'egl-graph-dash' }),
+          t('graph.legendAppears')),
+        h('span', { className: 'egl-graph-key' },
+          h('span', { className: 'egl-graph-dot', style: { background: 'var(--dsw-alias-brand-primary)', width: 6, height: 6 } }),
+          t('graph.legendCooccur')),
+        h('span', { className: 'egl-graph-key' },
+          h('span', { className: 'egl-graph-dash', style: { color: 'var(--dsw-alias-state-success-primary)' } }),
+          t('graph.legendMorph')),
+        h('span', { className: 'egl-graph-key' },
+          h('span', { className: 'egl-graph-dash', style: { color: 'var(--dsw-alias-state-error-primary)' } }),
+          t('graph.legendSense'))
+      )
+
+      let placeholder = null
+      if (loading && graph === null) {
+        placeholder = h('div', { className: 'egl-empty' }, t('graph.loading'))
+      } else if (graph === null) {
+        placeholder = error !== ''
+          ? h('div', { className: 'egl-empty' },
+            h('div', { className: 'egl-empty-title' }, t('graph.failed')),
+            h('div', { className: 'egl-muted' }, error),
+            h('div', { style: { marginTop: 8 } }, h('button', { type: 'button', className: 'egl-btn', onClick: onRefresh }, t('graph.retry'))))
+          : h('div', { className: 'egl-empty' }, t('graph.loading'))
+      } else if (!hasWords) {
+        placeholder = h('div', { className: 'egl-empty' }, t('graph.emptyWords'))
+      } else if (!hasTranscripts) {
+        placeholder = h('div', { className: 'egl-empty' }, t('graph.emptyTranscripts'))
+      } else if (!hasLinks) {
+        placeholder = h('div', { className: 'egl-empty' }, t('graph.emptyLinks'))
+      }
+
+      const ariaLabel = t('graph.ariaLabel', { words: String(wordCount), transcripts: String(transcriptCount) })
+      const detail = selectedNode !== null
+        ? h(GraphDetail, { t, graph: scoped, node: selectedNode, onSelect, onOpenTranscript, onScopeFile })
+        : (placeholder !== null ? placeholder : h(GraphDetail, { t, graph: scoped, node: null, onSelect, onOpenTranscript, onScopeFile }))
+
+      return h('div', { className: 'egl-graph', 'aria-busy': loading ? 'true' : 'false' },
+        h('div', { className: 'egl-graph-tools' }, filterTabs, searchInput, actions),
+        scope,
+        resultsList,
+        banners.length > 0 ? h('div', { className: 'egl-graph-banners' }, banners) : null,
+        h('div', { className: 'egl-graph-canvas', ref: containerRef },
+          h('canvas', { ref: canvasRef, role: 'img', 'aria-label': ariaLabel })),
+        legend,
+        h('div', { className: 'egl-graph-detail' }, detail)
+      )
+    }
+
+
     // ═══════════════════════════════════════════════════════════════════
     // §8 ReaderPanel 组装
     // 符号表：
     //   ReaderPanel — 侧栏面板：状态、生命周期（api.retain/release）、轮询编排、
-    //       文稿加载、查词浮窗、转写任务、生词本动作、背记动作、以及 §7 视图的组合
+    //       文稿加载、查词浮窗、转写任务、生词本动作、背记动作、图谱加载与选中、以及 §7 视图的组合
     // 关键约定：
     //   - 列表轮询 4s，数据签名不变不 setState；后台标签页与 in-flight 由 usePolling 守
     //   - 任务轮询 1.5s，只读一次终态；迟到响应被 jobTerminalRef 丢弃
     //   - 切文稿只触发一次 workspaceFiles 读取（签名 useMemo + useTranscript）
+    //   - 首屏回到「上次打开的那一篇」（localStorage），删了才回退最新一篇
     //   - 背记只在 recall tab 拉一次 recall.overview，切走/卸载 abort；grade/reset 返回的新总览直接替换状态
+    //   - 图谱只在 graph tab 拉一次 graph.overview（只读派生数据），刷新用 graphNonce；选中/范围在数据刷新后自动清理失效节点
     //   - 所有异步回调先看 isAbortError，卸载/取消后不再 setState
     // ═══════════════════════════════════════════════════════════════════
     function ReaderPanel({ sessionId, t, api }) {
@@ -3392,6 +4859,15 @@ window.__ModuleLoader__.load({
       const [recallMode, setRecallMode] = useState(() => readRecallMode())
       const [recallNonce, setRecallNonce] = useState(0)
       const recallRequestRef = useRef(0)
+      const [graph, setGraph] = useState(null)
+      const [graphLoading, setGraphLoading] = useState(false)
+      const [graphError, setGraphError] = useState('')
+      const [graphFilter, setGraphFilter] = useState(() => readGraphFilter())
+      const [graphSearch, setGraphSearch] = useState('')
+      const [graphSelected, setGraphSelected] = useState(null)
+      const [graphScope, setGraphScope] = useState(null)
+      const [graphNonce, setGraphNonce] = useState(0)
+      const graphRequestRef = useRef(0)
       const [query, setQuery] = useState('')
       const [toast, setToast] = useState('')
       const [busy, setBusy] = useState('')
@@ -3472,18 +4948,30 @@ window.__ModuleLoader__.load({
 
       const refresh = usePolling(refreshLists, { intervalMs: 4000, hiddenSkip: true })
 
+      // 首屏选中文稿：优先「上次打开的那一篇」（浏览器本地记录），它已被删除或不在
+      // 当前工作区时才回退到最新一篇（transcripts.list 按 createdAt 倒序）。列表未就绪
+      // 前 selected 保持 null，避免先对旧文件名发一次必然失败的读取。
       useEffect(() => {
+        if (!listsLoaded) return
         if (transcripts.length === 0) {
           if (selected !== null) setSelected(null)
           return
         }
-        if (selected === null || !transcripts.some((item) => item.file === selected)) {
-          setSelected(transcripts[0].file)
-        }
-      }, [transcripts, selected])
+        if (selected !== null && transcripts.some((item) => item.file === selected)) return
+        const remembered = readLastTranscript()
+        const next = remembered !== null && transcripts.some((item) => item.file === remembered)
+          ? remembered
+          : transcripts[0].file
+        setSelected(next)
+      }, [transcripts, selected, listsLoaded])
 
       useEffect(() => {
         setDeleteConfirm(false)
+      }, [selected])
+
+      // 每次选中都记下来：面板重开、刷新页面或换会话都回到这一篇，而不是最新一篇。
+      useEffect(() => {
+        if (selected !== null) saveLastTranscript(selected)
       }, [selected])
 
       // 背记：进入 recall tab 拉一次今日总览；切走或卸载 abort，迟到的错误不落 state。
@@ -3512,6 +5000,40 @@ window.__ModuleLoader__.load({
           controller.abort()
         }
       }, [api, mode, recallNonce])
+
+      // 图谱：进入 graph tab 拉一次关系图；切走/卸载 abort，迟到的响应不落 state。
+      // 序号守卫 + graphNonce 手动刷新；图是只读派生数据，切回来就重新算一次。
+      useEffect(() => {
+        if (mode !== 'graph') return undefined
+        const controller = new AbortController()
+        const requestId = ++graphRequestRef.current
+        let alive = true
+        setGraphLoading(true)
+        setGraphError('')
+        api.graphOverview(controller.signal)
+          .then((value) => {
+            if (!alive || requestId !== graphRequestRef.current) return
+            setGraph(value && typeof value === 'object' ? value : null)
+          })
+          .catch((error) => {
+            if (!alive || requestId !== graphRequestRef.current || isAbortError(error)) return
+            setGraphError(errorMessage(error))
+          })
+          .finally(() => {
+            if (alive && requestId === graphRequestRef.current) setGraphLoading(false)
+          })
+        return () => {
+          alive = false
+          controller.abort()
+        }
+      }, [api, mode, graphNonce])
+
+      // 刷新后节点可能已经消失（删了词/文稿）：清理失效的选中与「只看一篇」范围。
+      useEffect(() => {
+        if (graph === null || !Array.isArray(graph.nodes)) return
+        if (graphSelected !== null && !graph.nodes.some((node) => node.id === graphSelected)) setGraphSelected(null)
+        if (graphScope !== null && !graph.nodes.some((node) => node.kind === 'transcript' && node.file === graphScope)) setGraphScope(null)
+      }, [graph, graphSelected, graphScope])
 
       // 首次拿到总览后才采用宿主配置里的默认练习方式（用户手动切换过就不再覆盖）。
       useEffect(() => {
@@ -3963,6 +5485,33 @@ window.__ModuleLoader__.load({
         void resetRecall({ all: true })
       }, [resetRecall])
 
+      const refreshGraph = useCallback(() => {
+        setGraphNonce((value) => value + 1)
+      }, [])
+
+      const changeGraphFilter = useCallback((value) => {
+        if (!GRAPH_FILTERS.includes(value)) return
+        setGraphFilter(value)
+        saveGraphFilter(value)
+      }, [])
+
+      /** 从图谱跳到文稿视图：选中该文稿并切到 reader。 */
+      const openTranscriptFromGraph = useCallback((file) => {
+        if (typeof file !== 'string' || file === '') return
+        setSelected(file)
+        setMode('reader')
+      }, [])
+
+      const focusGraphFile = useCallback((file) => {
+        if (typeof file !== 'string' || file === '') return
+        setGraphScope(file)
+        setGraphSelected('t:' + file)
+      }, [])
+
+      const clearGraphScope = useCallback(() => {
+        setGraphScope(null)
+      }, [])
+
       const onImportFile = useCallback(async (event) => {
         const file = event.target.files && event.target.files[0]
         event.target.value = ''
@@ -4153,6 +5702,24 @@ window.__ModuleLoader__.load({
         font: recallFont,
       })
 
+      const graphView = h(GraphView, {
+        t,
+        graph,
+        loading: graphLoading,
+        error: graphError,
+        filter: graphFilter,
+        onFilter: changeGraphFilter,
+        search: graphSearch,
+        onSearch: setGraphSearch,
+        selected: graphSelected,
+        onSelect: setGraphSelected,
+        onRefresh: refreshGraph,
+        onOpenTranscript: openTranscriptFromGraph,
+        scopeFile: graphScope,
+        onScopeFile: focusGraphFile,
+        onClearScope: clearGraphScope,
+      })
+
       return h('div', { className: 'egl-root', ref: rootRef },
         h('style', null, CSS),
         h('input', {
@@ -4166,9 +5733,10 @@ window.__ModuleLoader__.load({
           h('div', { className: 'egl-tabs', role: 'tablist' },
             h('button', { type: 'button', role: 'tab', 'aria-selected': mode === 'reader', className: 'egl-tab' + (mode === 'reader' ? ' is-on' : ''), onClick: () => setMode('reader') }, t('mode.reader')),
             h('button', { type: 'button', role: 'tab', 'aria-selected': mode === 'vocab', className: 'egl-tab' + (mode === 'vocab' ? ' is-on' : ''), onClick: () => setMode('vocab') }, t('mode.vocab') + (pending > 0 ? ' ' + String(pending) : '')),
-            h('button', { type: 'button', role: 'tab', 'aria-selected': mode === 'recall', className: 'egl-tab' + (mode === 'recall' ? ' is-on' : ''), onClick: () => setMode('recall') }, t('mode.recall'))
+            h('button', { type: 'button', role: 'tab', 'aria-selected': mode === 'recall', className: 'egl-tab' + (mode === 'recall' ? ' is-on' : ''), onClick: () => setMode('recall') }, t('mode.recall')),
+            h('button', { type: 'button', role: 'tab', 'aria-selected': mode === 'graph', className: 'egl-tab' + (mode === 'graph' ? ' is-on' : ''), onClick: () => setMode('graph') }, t('mode.graph'))
           ),
-          h(FontControl, { t, value: activeFont, onChange: changeFont }),
+          mode === 'graph' ? null : h(FontControl, { t, value: activeFont, onChange: changeFont }),
           mode === 'reader' && transcripts.length > 0
             ? h('select', {
                 className: 'egl-select',
@@ -4185,13 +5753,15 @@ window.__ModuleLoader__.load({
                 )
               : mode === 'vocab'
                 ? h('button', { type: 'button', className: 'egl-btn', onClick: refresh }, t('common.refresh'))
-                : h('button', { type: 'button', className: 'egl-btn', disabled: recallLoading || recallBusy !== '', onClick: refreshRecall }, t('recall.refresh'))
+                : mode === 'recall'
+                  ? h('button', { type: 'button', className: 'egl-btn', disabled: recallLoading || recallBusy !== '', onClick: refreshRecall }, t('recall.refresh'))
+                  : h('button', { type: 'button', className: 'egl-btn', disabled: graphLoading, onClick: refreshGraph }, t('graph.refresh'))
           )
         ),
         apiError !== ''
           ? h('div', { className: 'egl-job is-failed', style: { margin: '8px 10px 0' } }, t('error.withDetail', { message: apiError }))
           : null,
-        mode === 'reader' ? readerView : mode === 'vocab' ? vocabView : recallView,
+        mode === 'reader' ? readerView : mode === 'vocab' ? vocabView : mode === 'recall' ? recallView : graphView,
         popup
           ? h('div', { ref: popupRef },
               h(Popup, { t, popup, busy: busy === 'add', onAdd: addPopup, onClose: () => setPopup(null) }))

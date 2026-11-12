@@ -1,7 +1,7 @@
 /**
  * Pure text helpers (zero dependencies, no filesystem access):
  * XML entity decoding, HTML / Markdown / TeX cleanup, paragraph splitting,
- * transcript segment merging and clock formatting.
+ * transcript segment merging, clock formatting and wordbook meaning folding.
  */
 
 export function formatClock(ms) {
@@ -147,4 +147,135 @@ export function mergeSegments(segments, maxGapMs) {
     merged.push({ ...segment, text })
   }
   return merged
+}
+
+/**
+ * Meaning folding for the wordbook: split one Chinese meaning list into
+ * comparison fragments and merge two meanings that explain the same thing.
+ *
+ * This lives in the pure text helpers (no imports) so both host/vocab.js and
+ * host/senses.js can share it without pulling in any IO module; client.js has a
+ * mirrored copy in §3 for display-only folding.
+ */
+
+/** Separators inside one Chinese meaning list ("介入；干预；调停"). */
+const MEANING_ATOM_SPLIT = /[；;，,、/]/
+
+function isMeaningRecord(value) {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function hasMeaningExample(meaning) {
+  return typeof meaning.example === 'string' && meaning.example !== ''
+}
+
+function hasMeaningSource(meaning) {
+  return isMeaningRecord(meaning.source)
+}
+
+/** Fragments of one Chinese meaning list, trimmed and deduplicated. */
+export function meaningAtoms(zh) {
+  const atoms = []
+  const seen = new Set()
+  for (const piece of String(zh ?? '').split(MEANING_ATOM_SPLIT)) {
+    const atom = piece.trim()
+    if (atom === '' || seen.has(atom)) continue
+    seen.add(atom)
+    atoms.push(atom)
+  }
+  return atoms
+}
+
+/**
+ * True when one fragment is the same wording as another, or a narrower one
+ * ("丑闻" inside "丑闻（尤指性丑闻）"). Single characters never match by
+ * containment, so "跑" and "跑步" stay separate senses.
+ */
+function atomCoveredBy(atom, cover) {
+  if (atom === cover) return true
+  return atom.length >= 2 && cover.includes(atom)
+}
+
+/** True when every target fragment is covered by at least one cover fragment. */
+function atomsCover(coverAtoms, targetAtoms) {
+  if (targetAtoms.length === 0 || coverAtoms.length === 0) return false
+  return targetAtoms.every((atom) => coverAtoms.some((cover) => atomCoveredBy(atom, cover)))
+}
+
+/** True when smaller has strictly fewer fragments and all of them are covered. */
+function atomsStrictlyContain(biggerAtoms, smallerAtoms) {
+  return smallerAtoms.length < biggerAtoms.length && atomsCover(biggerAtoms, smallerAtoms)
+}
+
+/**
+ * Merge two meanings that explain the same thing, or return null.
+ *
+ * "The same thing" = the Chinese fragments of one cover all fragments of the
+ * other. The richer explanation wins (a superset of fragments, or the earlier
+ * row on a tie) and the dropped row only backfills missing example/source
+ * evidence; an existing zh is never overwritten. Parts of speech must match,
+ * except when one fragment set strictly contains the other — that folds
+ * "v. 介入；干预；调停" + "n. 干预；介入" but keeps "n. 增加" + "v. 增加".
+ *
+ * Pure: neither input is mutated; the returned object is a new meaning.
+ */
+export function mergeMeaningPair(left, right) {
+  if (!isMeaningRecord(left) || !isMeaningRecord(right)) return null
+  const leftZh = String(left.zh ?? '').trim()
+  const rightZh = String(right.zh ?? '').trim()
+  if (leftZh === '' || rightZh === '') return null
+  const leftAtoms = meaningAtoms(leftZh)
+  const rightAtoms = meaningAtoms(rightZh)
+  const leftCovers = atomsCover(leftAtoms, rightAtoms)
+  const rightCovers = atomsCover(rightAtoms, leftAtoms)
+  if (!leftCovers && !rightCovers) return null
+  const leftPos = String(left.pos ?? '').trim()
+  const rightPos = String(right.pos ?? '').trim()
+  if (leftPos !== '' && rightPos !== '' && leftPos.toLowerCase() !== rightPos.toLowerCase()) {
+    if (!atomsStrictlyContain(leftAtoms, rightAtoms) && !atomsStrictlyContain(rightAtoms, leftAtoms)) return null
+  }
+  const keepRight = rightCovers && !leftCovers
+  const keep = keepRight ? right : left
+  const drop = keepRight ? left : right
+  const merged = {
+    ...keep,
+    pos: String(keep.pos ?? '').trim() || String(drop.pos ?? '').trim(),
+    zh: String(keep.zh ?? '').trim(),
+  }
+  if (!hasMeaningExample(merged) && hasMeaningExample(drop)) merged.example = drop.example
+  if (!hasMeaningSource(merged) && hasMeaningSource(drop)) merged.source = drop.source
+  return merged
+}
+
+/**
+ * Collapse meanings that explain the same thing (see mergeMeaningPair).
+ *
+ * Used by the write paths (normalizeMeanings / mergeSenses) and by the
+ * display/export paths, so duplicate senses from an older dictionary entry and
+ * the multi-sense analysis are folded into one readable line. Order is the
+ * first occurrence order; evidence is preserved; the input is never mutated.
+ */
+export function collapseMeanings(raw) {
+  const items = []
+  for (const meaning of Array.isArray(raw) ? raw : []) {
+    if (!isMeaningRecord(meaning)) continue
+    const zh = String(meaning.zh ?? '').trim()
+    if (zh === '') continue
+    items.push({ ...meaning, pos: String(meaning.pos ?? '').trim(), zh })
+  }
+  let changed = true
+  while (changed) {
+    changed = false
+    for (let index = 0; index < items.length && !changed; index += 1) {
+      for (let other = index + 1; other < items.length; other += 1) {
+        const merged = mergeMeaningPair(items[index], items[other])
+        if (merged === null) continue
+        items[index] = merged
+        items.splice(other, 1)
+        changed = true
+        break
+      }
+    }
+  }
+  return items
 }

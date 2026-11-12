@@ -6,11 +6,12 @@
  * fingerprint.
  *
  * Pure by contract: no filesystem, no timers, no network. The only imports are
- * node:crypto (sha1 keys) and ./text.js (formatClock). host/analysis.js owns
- * all IO, the model call and the background scheduling.
+ * node:crypto (sha1 keys) and ./text.js (formatClock plus the meaning-folding
+ * helpers collapseMeanings / mergeMeaningPair). host/analysis.js owns all IO,
+ * the model call and the background scheduling.
  */
 import { createHash } from 'node:crypto'
-import { formatClock } from './text.js'
+import { collapseMeanings, formatClock, mergeMeaningPair } from './text.js'
 
 /** Bumped whenever the prompt/context/merge semantics change; part of the fingerprint. */
 export const ANALYSIS_VERSION = 1
@@ -411,8 +412,7 @@ export function buildSensePrompt(entry, contexts) {
     lines.push(`Word forms to treat as the same word: ${variants.join(', ')}.`)
   }
   const existing = []
-  for (const meaning of Array.isArray(source.meanings) ? source.meanings : []) {
-    if (!isRecord(meaning)) continue
+  for (const meaning of collapseMeanings(source.meanings)) {
     const zh = collapse(meaning.zh)
     if (zh === '') continue
     const pos = collapse(meaning.pos)
@@ -534,10 +534,13 @@ function senseKey(pos, zh) {
 /**
  * Merge normalized senses into the entry's existing meanings.
  *
- * Existing meanings are preserved (their zh is never overwritten); a matching
- * pos+zh only receives the missing example/source evidence. New senses are
- * appended with the context that shows them, up to MAX_MEANINGS (8) in total.
- * The result is idempotent: a second call with the same inputs adds 0.
+ * Existing meanings are preserved and enriched with the missing evidence.
+ * A sense that explains the same thing as an existing meaning is folded into
+ * that row instead of appending a near-duplicate (see mergeMeaningPair): the
+ * richer wording wins, POS survives when only one row has one, and evidence is
+ * backfilled. Only genuinely new senses are appended, up to MAX_MEANINGS (8).
+ * Existing near-duplicates are folded as well (a stale dictionary + analysis
+ * pair cleans itself up on the next analysis). The result is idempotent.
  */
 export function mergeSenses(entry, senses, contexts) {
   const source = isRecord(entry) ? entry : {}
@@ -545,11 +548,6 @@ export function mergeSenses(entry, senses, contexts) {
     .filter((meaning) => isRecord(meaning))
     .map((meaning) => ({ ...meaning }))
   const list = contextList(contexts)
-  const index = new Map()
-  for (const meaning of meanings) {
-    const key = senseKey(meaning.pos, meaning.zh)
-    if (!index.has(key)) index.set(key, meaning)
-  }
   let added = 0
   for (const sense of Array.isArray(senses) ? senses : []) {
     if (!isRecord(sense)) continue
@@ -566,19 +564,32 @@ export function mergeSenses(entry, senses, contexts) {
       }
     }
     const key = senseKey(pos, zh)
-    const existing = index.get(key)
+    const existing = meanings.find((meaning) => senseKey(meaning.pos, meaning.zh) === key)
     if (existing !== undefined) {
       if (existing.example === undefined && evidence?.example !== undefined) existing.example = evidence.example
       if (existing.source === undefined && evidence?.source !== undefined) existing.source = evidence.source
       continue
     }
+    const candidate = { pos, zh }
+    if (evidence?.example !== undefined) candidate.example = evidence.example
+    if (evidence?.source !== undefined) candidate.source = evidence.source
+    let mergedIndex = -1
+    let mergedMeaning
+    for (let index = 0; index < meanings.length; index += 1) {
+      const merged = mergeMeaningPair(meanings[index], candidate)
+      if (merged === null) continue
+      mergedIndex = index
+      mergedMeaning = merged
+      break
+    }
+    if (mergedIndex >= 0 && mergedMeaning !== undefined) {
+      meanings[mergedIndex] = mergedMeaning
+      continue
+    }
     if (meanings.length >= MAX_MEANINGS) continue
-    const meaning = { pos, zh }
-    if (evidence?.example !== undefined) meaning.example = evidence.example
-    if (evidence?.source !== undefined) meaning.source = evidence.source
-    meanings.push(meaning)
-    index.set(key, meaning)
+    meanings.push(candidate)
     added += 1
   }
-  return { meanings, added, total: meanings.length }
+  const collapsed = collapseMeanings(meanings)
+  return { meanings: collapsed, added, total: collapsed.length }
 }

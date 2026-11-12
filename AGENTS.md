@@ -2,7 +2,7 @@
 
 DSH 持久插件「英语精读」：把播客录音用百炼 `bl speech recognize` 转成分角色文稿，在右侧边栏阅读；
 选中单词或句子按 Ctrl 查词并收进生词本；生词本会在后台空闲时对比全部文稿自动补全多义；
-再在第三个视图「背记」里按掌握度做每日主动回忆。
+再在第三个视图「背记」里按掌握度做每日主动回忆；第四个视图「图谱」用只读关系图展示文稿↔单词、单词↔单词的联系（全部本地现算，无新数据文件）。
 Host 半（Node）提供 agent 工具与同源 HTTP 接口，Client 半（浏览器）是手写 `window.__ModuleLoader__.load` bundle。
 
 ## 架构决策（不要推翻）
@@ -30,7 +30,7 @@ index.js            export name / inject / apply(ctx)：只做组装
 host/config.js      默认配置、校验、合并
 host/paths.js       工作区路径校验、安全删除、文件名分配、DomainError/fail 领域错误原语
 host/json-store.js  原子写、损坏备份、串行写锁、vocab/cache 读写
-host/text.js        实体解码、HTML/Markdown/TeX 清洗、段落切分
+host/text.js        实体解码、HTML/Markdown/TeX 清洗、段落切分、义项片段合并（collapseMeanings / mergeMeaningPair，被 vocab/senses 共用）
 host/pdf.js         pdftotext -bbox 解析、行分组、PDF 渲染（poppler 预检）
 host/transcript.js  文稿归一化、合并、列表、导入、删除
 host/asr.js         转写任务状态机、落盘、恢复、进程树取消
@@ -39,6 +39,7 @@ host/vocab.js       词条规范化（唯一实现）、增删改查、多义分
 host/senses.js      多义分析纯函数：语料切句/命中、上下文收集、提示词、模型结果归一化与义项合并、语料指纹
 host/analysis.js    多义分析流水线 + 后台空闲调度（noteActivity / analyzeStale / tick），注入 vocab/lookup/configLoader
 host/recall.js      背记：掌握度/复习间隔调度、每日轮次规划、进度读写（懒清理已删词条）
+host/graph.js       图谱：文稿↔单词 / 单词↔单词关系图的纯构建（词形整词匹配、同句共现、同根同族、近义）与只读服务
 host/env.js         环境自检（bl / poppler / 工作区）、唯一子进程 runner（StringDecoder、进程树 kill）
 host/api.js         action 分发表 + HTTP 网关（校验、限流、错误码、脱敏）
 host/tools.js       两个 agent 工具的注册、schema、render
@@ -55,11 +56,11 @@ tests/              node --test（零依赖）
 §0 常量 / PKG / ID
 §1 运行时 i18n（zh / en 字典，经 ctx.locale.register）
 §2 styles
-§3 纯函数（时间、格式化、高亮、数学公式、选区清洗、背记答案判定）
+§3 纯函数（时间、格式化、高亮、数学公式、选区清洗、背记答案判定、义项展示合并、图谱布局/筛选/搜索）
 §4 api 网关（唯一 fetch/poll/abort 出口）
 §5 纯组件（弹窗、生词卡、PDF 页、按钮）
-§6 hooks（usePolling / useSelectionLookup / useTranscript）
-§7 视图（转写面板、文稿、PDF、生词本、背记、环境自检卡）
+§6 hooks（usePolling / useSelectionLookup / useTranscript / useGraphCanvas）
+§7 视图（转写面板、文稿、PDF、生词本、背记、图谱、环境自检卡）
 §8 ReaderPanel 组装
 §9 注册（locale / sidebarRightTabs / slots / 会话头按钮）
 ```
@@ -77,7 +78,7 @@ tests/              node --test（零依赖）
 ### HTTP
 
 `POST /dsh-english/api`，请求头 `content-type: application/json` + `x-english-practice: 1`。
-鉴权：仅回环地址 + `x-english-practice` 请求头 + 会话必须在线；请求带 `Origin` 时必须为本地来源（`127.0.0.1` / `localhost` / `::1`），不校验 `Host`。请求体上限 32MB（各 action 另有上限），网关超时默认 60s、`transcripts.import` 300s（覆盖 pdftoppm 180s + pdftotext 120s，客户端预算必须同步）、`vocab.analyze` 180s（单批多词 × 模型超时），限流 30 req/s（突发 60）。
+鉴权：仅回环地址 + `x-english-practice` 请求头 + 会话必须在线；请求带 `Origin` 时必须为本地来源（`127.0.0.1` / `localhost` / `::1`），不校验 `Host`。请求体上限 32MB（各 action 另有上限），网关超时默认 60s、`transcripts.import` 300s（覆盖 pdftoppm 180s + pdftotext 120s，客户端预算必须同步）、`vocab.analyze` 180s（单批多词 × 模型超时）、`graph.overview` 30s，限流 30 req/s（突发 60）。
 
 请求：`{ action: string, sessionId: string, payload: object }`
 
@@ -119,6 +120,7 @@ recall/invalid recall/not-found
 | `recall.overview`（新增） | `{}` | 今日背记总览：`{date,config,summary,items[],words[],history[]}`（字段见 `host/recall.js`） |
 | `recall.grade`（新增） | `{entryId, grade:'again'\|'hard'\|'good'\|'easy', mode?:'en-zh'\|'zh-en'}` | 与 `recall.overview` 相同形状（作答后的新总览）；同一轮同词重试覆盖当天 result |
 | `recall.reset`（新增） | `{entryId?, all?}` | 与 `recall.overview` 相同形状（重置单个单词 / 全部进度后的新总览） |
+| `graph.overview`（新增） | `{}` | 只读关系图：`{version,generatedAt,summary,nodes[],links[]}`（字段见 `host/graph.js`）；不写盘、不调模型；`appears`=文稿↔单词（`count` 为整词出现次数、`origin`/`sample`），`cooccur`=同句共现，`morph`=同根/同族，`sense`=共享中文义项片段 |
 | `transcribe` | `{audio, speakers?, model?, language?}` | `{jobId,transcript}` |
 | `job` | `{id}` | `{jobId,state:'queued'|'running'|'done'|'failed',transcript?,error?,warnings?,segments?,speakers?,durationMs?,heartbeatAt?}`；未知 id 直接 404 + `job/not-found` |
 | `env.check`（新增） | `{}` | `{workspace:{root,writable,transcripts,vocab,recordings}, bl:{present,version?,authenticated?,message?}, pdf:{present,tool,message?}, warnings:string[]}` |
@@ -159,11 +161,14 @@ recall/invalid recall/not-found
 - 每轮最多处理一个工作区的一批（`analysis.batchWords`），批间有 20s 间隔；没有剩余过期词后 10 分钟内不再重扫。`analysis.enabled=false` 或 `lookup.backend=off` 时不跑。
 - 过期判定：无 `entry.analysis`、`version` 不符、`fingerprint`（语料 + 词/词形 + 原始例句）变化；`failed` 需超过 `retryMinutes` 才重试。上下文 < 2 条时只写 `skipped`，不调用模型。
 - 只追加/补证据，不覆盖已有 `zh`；最多保留 8 条释义；单条失败写 `failed` 后继续下一条，不抛出到网关。插件卸载或 agent 工具 AbortSignal 取消不会写成失败；HTTP 网关目前不向 handler 传递取消信号。
+- **义项合并（展示与写入共用一条规则）**：把 `zh` 按 `；;，,、/` 切成片段；两条义项的片段集合互相覆盖（相等，或一条被另一条按整片段/子串包含）时视为同一条释义，保留更完整的写法并把缺失的 `example`/`source` 回填，绝不覆盖已有 `zh`。跨词性只在片段集合「严格包含」时合并（`v. 介入；干预；调停` 会吸收 `n. 干预；介入`），片段集合相等时保留两条（`n. 增加` / `v. 增加`）。实现只有一份：`host/text.js` 的 `collapseMeanings` / `mergeMeaningPair`，被 `normalizeMeanings`（写入）、`mergeSenses`（多义分析写入）、`vocabularyMarkdown`（导出）、`vocab.list`（工具返回）使用；`client.js` §3 有同规则的展示副本（词卡 / 背记卡 / 图谱详情 / 查词浮窗），只为折叠历史数据，不写盘。
 
 ## 测试
 
 - 只使用 `node:test` + `node:assert/strict`，不引入依赖。
-- 纯逻辑（text/pdf/transcript/vocab/json-store/paths/config/asr 状态机/recall 掌握度调度/senses 多义合并/analysis 空闲调度）必须有单测。
+- 纯逻辑（text/pdf/transcript/vocab/json-store/paths/config/asr 状态机/recall 掌握度调度/senses 多义合并/analysis 空闲调度/graph 关系构建与截断）必须有单测。
+- 图谱的上限与语义（MAX_WORDS / MAX_DOCUMENTS / MAX_SCAN_CHARS / MAX_APPEARS_PER_WORD / MAX_COOCCUR_PER_WORD、整词匹配、同句共现、同根停用词缀、近义片段）由 `tests/graph.test.mjs` 锁死；契约测试额外要求 `REQUIRED_GRAPH_KEYS`。
+- 义项合并规则由 `tests/text.test.mjs`（collapseMeanings / mergeMeaningPair）、`tests/vocab.test.mjs`（normalizeMeanings 写入折叠）与 `tests/senses.test.mjs`（mergeSenses 折叠与幂等）锁死；客户端展示副本必须保持同样的规则（改规则时三处一起改：host/text.js、client.js §3、对应测试）。
 - 契约测试：`client.js` 里出现的 action 名集合与 `host/api.js` 分发表一致；`client.js` 的 loader id 与 `package.json#name` 一致；`client.js` 的 zh / en 两套 i18n 字典必须完全等键；发布元数据（`package.json`、`whalepicks.json`、CHANGELOG 当前版本区段）一致。
 
 ## 发布流程（维护者）

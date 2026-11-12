@@ -10,7 +10,7 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 import { fail, isRecord, normalizedPath, VOCAB_MD_REL, VOCAB_REL } from './paths.js'
-import { formatClock } from './text.js'
+import { collapseMeanings, formatClock } from './text.js'
 
 export const MAX_LOOKUP_TEXT = 400
 export const MAX_WORD = 120
@@ -51,7 +51,7 @@ function hasEvidence(meaning, field) {
   return isRecord(meaning.source)
 }
 
-/** Normalize an array of {pos, zh, example?, source?} meanings (deduplicated, capped). */
+/** Normalize an array of {pos, zh, example?, source?} meanings (deduplicated, merged, capped). */
 export function normalizeMeanings(raw, options = {}) {
   const limit = Number.isFinite(Number(options.limit)) ? Number(options.limit) : 3
   if (!Array.isArray(raw)) return []
@@ -75,7 +75,9 @@ export function normalizeMeanings(raw, options = {}) {
     if (!hasEvidence(existing, 'example') && evidence.example !== undefined) existing.example = evidence.example
     if (!hasEvidence(existing, 'source') && evidence.source !== undefined) existing.source = evidence.source
   }
-  return meanings.slice(0, limit)
+  // Fold meanings that explain the same thing (dictionary + analysis variants),
+  // then apply the cap, so the limit keeps the most useful rows.
+  return collapseMeanings(meanings).slice(0, limit)
 }
 
 /** Normalize an array of {label, form} word forms (deduplicated, capped). */
@@ -252,7 +254,7 @@ export function vocabularyMarkdown(data) {
   for (const entry of wordEntries) {
     const head = entry.ipa ? `### ${entry.word} ${entry.ipa}` : `### ${entry.word}`
     lines.push(head)
-    for (const meaning of entry.meanings ?? []) {
+    for (const meaning of collapseMeanings(entry.meanings ?? [])) {
       lines.push(`- ${meaning.pos ? `${meaning.pos} ` : ''}${meaning.zh}`)
       const example = typeof meaning.example === 'string' ? meaning.example.trim() : ''
       if (example !== '') {
@@ -399,7 +401,8 @@ export function createVocabService(options) {
       pending: data.words.filter((item) => item.status === 'pending').length,
       words: data.words.filter((item) => item.kind === 'word').length,
       sentences: data.words.filter((item) => item.kind === 'sentence').length,
-      entries: rows,
+      // Same folding as the panel/markdown: the agent never sees two lines for one sense.
+      entries: rows.map((item) => (item.kind === 'word' ? { ...item, meanings: collapseMeanings(item.meanings) } : item)),
     }
   }
 

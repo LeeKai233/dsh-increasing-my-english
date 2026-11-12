@@ -13,6 +13,7 @@ import { createAnalysisService } from './analysis.js'
 import { createJobManager } from './asr.js'
 import { createConfigLoader, DEFAULT_CONFIG, resolveExecutables } from './config.js'
 import { createEnvService, runCommand as defaultRunCommand } from './env.js'
+import { createGraphService } from './graph.js'
 import { createWorkspaceStore } from './json-store.js'
 import { createLookupService } from './lookup.js'
 import {
@@ -47,6 +48,7 @@ export const ACTION_NAMES = Object.freeze([
   'recall.overview',
   'recall.grade',
   'recall.reset',
+  'graph.overview',
   'transcribe',
   'job',
   'env.check',
@@ -67,6 +69,9 @@ export const REQUEST_TIMEOUT_MS = 60000
 export const ACTION_TIMEOUT_MS = Object.freeze({
   'transcripts.import': 300000,
   'vocab.analyze': 180000,
+  // Graph builds are pure and capped (~1s worst case); 30s leaves room for a
+  // slow disk without letting a stuck request hang the panel for a minute.
+  'graph.overview': 30000,
 })
 export const RATE_PER_SECOND = 30
 export const RATE_BURST = 60
@@ -111,6 +116,7 @@ export function createHost(ctx, overrides = {}) {
   const lookup = createLookupService({ ctx, store, runCommand, env })
   const vocab = createVocabService({ store, lookup })
   const recall = createRecallService({ store, vocab })
+  const graph = createGraphService({ store, vocab, recall })
   const analysis = createAnalysisService({ ctx, store, vocab, lookup, configLoader })
   const transcripts = createTranscriptService({
     store,
@@ -271,6 +277,10 @@ export function createHost(ctx, overrides = {}) {
     'recall.reset': async (agent, payload, signal) => {
       const { root, config } = await workspaceConfig(agent, signal)
       return recall.reset(root, config, payload)
+    },
+    'graph.overview': async (agent, payload, signal) => {
+      const { root, config } = await workspaceConfig(agent, signal)
+      return graph.overview(root, config)
     },
     'vocab.analyze': async (agent, payload, signal) => {
       const { root, config } = await workspaceConfig(agent, signal)
@@ -440,6 +450,7 @@ export function createHost(ctx, overrides = {}) {
     lookup,
     vocab,
     recall,
+    graph,
     analysis,
     transcripts,
     jobs,

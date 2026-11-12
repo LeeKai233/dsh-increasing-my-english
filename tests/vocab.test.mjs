@@ -255,6 +255,27 @@ test('normalizeMeanings keeps evidence fields and merges duplicates', () => {
   assert.equal(MAX_MEANINGS, 8)
 })
 
+test('normalizeMeanings folds senses that explain the same thing', () => {
+  const meanings = normalizeMeanings([
+    { pos: 'v.', zh: '介入；干预；调停' },
+    { pos: 'v.', zh: '介入；干预', example: 'The UN intervened.' },
+    { pos: 'n.', zh: '干预；介入', example: 'A brief intervention.' },
+  ], { limit: MAX_MEANINGS })
+  assert.equal(meanings.length, 1)
+  assert.equal(meanings[0].pos, 'v.')
+  assert.equal(meanings[0].zh, '介入；干预；调停')
+  assert.equal(meanings[0].example, 'The UN intervened.')
+  // Equal wording with a different POS survives (n. 增加 / v. 增加 are two senses).
+  const increase = normalizeMeanings([{ pos: 'n.', zh: '增加' }, { pos: 'v.', zh: '增加' }], { limit: MAX_MEANINGS })
+  assert.equal(increase.length, 2)
+  // Neighbouring but different meanings are untouched.
+  const intrigue = normalizeMeanings([
+    { pos: 'v.', zh: '阴谋；密谋' },
+    { pos: 'v.', zh: '激起兴趣；密谋' },
+  ], { limit: MAX_MEANINGS })
+  assert.equal(intrigue.length, 2)
+})
+
 test('applyVocabPatch backfills meaning evidence when meanings are replaced', () => {
   const target = {
     kind: 'word',

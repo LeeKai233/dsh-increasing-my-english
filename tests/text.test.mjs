@@ -1,8 +1,11 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
+  collapseMeanings,
   decodeXmlEntities,
   formatClock,
+  meaningAtoms,
+  mergeMeaningPair,
   mergeSegments,
   paragraphsFromText,
   stripHtml,
@@ -77,4 +80,86 @@ test('formatClock renders mm:ss and h:mm:ss', () => {
   assert.equal(formatClock(65000), '01:05')
   assert.equal(formatClock(-500), '00:00')
   assert.equal(formatClock(3661000), '1:01:01')
+})
+
+test('meaningAtoms splits a Chinese meaning list into fragments', () => {
+  assert.deepEqual(meaningAtoms('介入；干预；调停'), ['介入', '干预', '调停'])
+  assert.deepEqual(meaningAtoms('傲慢，狂妄、自大/other'), ['傲慢', '狂妄', '自大', 'other'])
+  assert.deepEqual(meaningAtoms('  介入 ； 介入 '), ['介入'])
+  assert.deepEqual(meaningAtoms(''), [])
+  assert.deepEqual(meaningAtoms(null), [])
+})
+
+test('collapseMeanings folds duplicates, keeps the richer wording and the evidence', () => {
+  // Same fragments in a different order + evidence only on the second row.
+  const affair = collapseMeanings([
+    { pos: 'n.', zh: '风流韵事；婚外情' },
+    { pos: 'n.', zh: '婚外情；风流韵事', example: 'Their affair was brief.', source: { transcript: 'a.json', title: 'A', speaker: '0', startMs: 10 } },
+  ])
+  assert.equal(affair.length, 1)
+  assert.equal(affair[0].zh, '风流韵事；婚外情')
+  assert.equal(affair[0].example, 'Their affair was brief.')
+  assert.equal(affair[0].source.title, 'A')
+
+  // Subset + superset: the superset wording wins and gets the missing evidence.
+  const intervene = collapseMeanings([
+    { pos: 'v.', zh: '介入；干预；调停' },
+    { pos: 'v.', zh: '介入；干预', example: 'The UN intervened.' },
+  ])
+  assert.equal(intervene.length, 1)
+  assert.equal(intervene[0].zh, '介入；干预；调停')
+  assert.equal(intervene[0].example, 'The UN intervened.')
+
+  // A narrower wording inside one fragment ("丑闻" ⊂ "丑闻（尤指性丑闻）").
+  const scandal = collapseMeanings([
+    { pos: 'n.', zh: '丑闻' },
+    { pos: 'n.', zh: '丑闻（尤指性丑闻）', example: 'A sex scandal.' },
+  ])
+  assert.equal(scandal.length, 1)
+  assert.equal(scandal[0].zh, '丑闻（尤指性丑闻）')
+  assert.equal(scandal[0].example, 'A sex scandal.')
+})
+
+test('collapseMeanings only folds across parts of speech for a strict containment', () => {
+  // Equal wording with different POS: both are real senses.
+  const increase = collapseMeanings([
+    { pos: 'n.', zh: '增加' },
+    { pos: 'v.', zh: '增加' },
+  ])
+  assert.deepEqual(increase.map((meaning) => meaning.pos), ['n.', 'v.'])
+
+  // Strict subset: the narrower noun sense adds nothing new.
+  const intervene = collapseMeanings([
+    { pos: 'v.', zh: '介入；干预；调停' },
+    { pos: 'n.', zh: '干预；介入' },
+  ])
+  assert.equal(intervene.length, 1)
+  assert.equal(intervene[0].pos, 'v.')
+})
+
+test('collapseMeanings keeps different senses, the original order and never mutates', () => {
+  const input = [
+    Object.freeze({ pos: 'n.', zh: '事务；事件' }),
+    Object.freeze({ pos: 'n.', zh: '风流韵事；婚外情' }),
+    Object.freeze({ pos: 'adj.', zh: '迷人的' }),
+  ]
+  const frozen = Object.freeze(input)
+  const collapsed = collapseMeanings(frozen)
+  assert.deepEqual(collapsed.map((meaning) => meaning.zh), ['事务；事件', '风流韵事；婚外情', '迷人的'])
+  assert.notEqual(collapsed[0], input[0])
+  assert.deepEqual(input[0], { pos: 'n.', zh: '事务；事件' })
+  assert.deepEqual(collapseMeanings(null), [])
+  assert.deepEqual(collapseMeanings([{ pos: 'n.', zh: '   ' }, null, 3]), [])
+})
+
+test('mergeMeaningPair returns null for unrelated senses and keeps inputs intact', () => {
+  assert.equal(mergeMeaningPair(null, { zh: 'x' }), null)
+  assert.equal(mergeMeaningPair({ zh: '' }, { zh: 'x' }), null)
+  assert.equal(mergeMeaningPair({ pos: 'n.', zh: '丑闻' }, { pos: 'n.', zh: '丑事的细节' }), null)
+  const left = { pos: 'n.', zh: '丑闻' }
+  const right = { pos: 'n.', zh: '丑闻（尤指性丑闻）' }
+  const merged = mergeMeaningPair(left, right)
+  assert.equal(merged.zh, '丑闻（尤指性丑闻）')
+  assert.deepEqual(left, { pos: 'n.', zh: '丑闻' })
+  assert.deepEqual(right, { pos: 'n.', zh: '丑闻（尤指性丑闻）' })
 })

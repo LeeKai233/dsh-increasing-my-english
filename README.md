@@ -2,7 +2,7 @@
 
 [中文](README.zh.md) · [Changelog](CHANGELOG.md) · [MIT License](LICENSE)
 
-Transcribe podcast recordings into speaker-diarized transcripts with the Bailian `bl speech recognize` CLI, read them in the DSH right sidebar, and press **Ctrl** on a word or sentence to look it up and keep it in a wordbook with phonetics, meanings, example sentences, word forms and etymology. While the plugin is idle, the wordbook **compares every transcript in the workspace and fills in the word's other senses** automatically. Then open the third view, **Review**, to review those words actively every day.
+Transcribe podcast recordings into speaker-diarized transcripts with the Bailian `bl speech recognize` CLI, read them in the DSH right sidebar, and press **Ctrl** on a word or sentence to look it up and keep it in a wordbook with phonetics, meanings, example sentences, word forms and etymology. While the plugin is idle, the wordbook **compares every transcript in the workspace and fills in the word's other senses** automatically. Then open the third view, **Review**, to review those words actively every day, and the fourth view, **Graph**, to see how the transcripts, the words, and the words among themselves connect.
 
 [![npm version](https://img.shields.io/npm/v/dsh-increasing-my-english.svg)](https://www.npmjs.com/package/dsh-increasing-my-english)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -74,6 +74,7 @@ See the illustrated steps in [README.zh.md](README.zh.md#百炼-cli-安装与登
 ### Read transcripts
 
 - Open it with the **headphones button** in the conversation header toolbar (tooltip: “Open English practice”), or the “English practice” card in the right-sidebar guide. The panel has a **Transcript / Wordbook / Review** view switch and **A− / A+** font sizing (12–20px, remembered separately for each view).
+- Opening the panel shows the **transcript you last opened** (remembered in browser storage, so it survives page refreshes and session switches); only when that file was deleted or is not in the current workspace does it fall back to the newest transcript.
 - When transcripts exist, a dropdown at the top (“Choose a transcript”) switches between them; transcripts are grouped by speaker with per-segment timestamps.
 - Imported transcripts have no speakers or timestamps and do not show **Merge short sentences**; PDF transcripts also get zoom (+ / −, remembered) and a **Preview** button that opens the original PDF inside DSH.
 
@@ -92,6 +93,7 @@ See the illustrated steps in [README.zh.md](README.zh.md#百炼-cli-安装与登
   - **etymology**: source language + root/affix breakdown + a short Chinese explanation.
 - Older entries missing those fields show a **Fetch forms & etymology** button (HTTP `vocab.enrich`, tool `action=enrich`).
 - **Automatic multi-sense completion**: when the plugin is idle (panel closed/hidden, no request for about 3 minutes), a background pass runs the wordbook words through **every transcript in the workspace**, asks the lookup backend for the senses actually used in those contexts, and appends the meanings found in other documents to the entry. New senses carry a **context example** and **source transcript** evidence; existing meanings are never overwritten (up to 8 meanings). Words with fewer than 2 contexts are only marked “no other contexts” and never cost a model call. Only a changed corpus/word-forms/original sentence (or a due retry) re-analyses a word, so idle time does not burn the model repeatedly. The card shows **Senses analyzed: N contexts · M transcripts**, and an **Analyze senses** button forces one word immediately (HTTP `vocab.analyze`, tool `action=analyze`).
+- **Duplicate meanings are folded**: near-duplicate senses coming from the dictionary and the multi-sense analysis collapse into one line (`v. 介入；干预；调停` + `v. 介入；干预`, `n. 丑闻` + `n. 丑闻（尤指性丑闻）`), keeping the fuller wording and its example/source; parts of speech only merge when one explanation strictly contains the other, so `n. 增加` and `v. 增加` stay separate. The wordbook card, the review card, the graph detail, the lookup popover, `vocab/生词本.md` and the assistant's list all use the same rule; stale duplicates are persisted away the next time an entry is rewritten.
 - The wordbook view supports search, word/sentence filtering, transcript filtering, sorting (time / A–Z), Full/Simple detail and deletion; when pending entries exist a banner with a **Copy prompt** button appears — paste it into the chat and the assistant reads pending entries with `english_vocab` and writes phonetics/meanings/translations back.
 - `vocab/生词本.md` is a readable export rewritten after every change.
 
@@ -103,6 +105,16 @@ See the illustrated steps in [README.zh.md](README.zh.md#百炼-cli-安装与登
 - Stuck? Use **Don’t know — show the answer**. The card also has a **Show example** toggle that reveals the example sentence containing the word (masked to same-length underscores in ZH → EN so it does not give the answer away; when the wordbook entry has no example it says so). After you submit, the example and its translation are shown in the answer area too. When the round is done you get today’s completion count and correct answers, streak days, and the last 14 days. **Mastery** is a separate page: switch to it with the **Today / Mastery** tabs at the top (it no longer stacks under the practice card). Its table sorts by mastery and lists **word / mastery bar / level / next review / actions** (each column left-aligned); a word can be reset individually and the whole progress can be reset at the bottom.
 - Deleting a wordbook entry cleans up its review state lazily on the next read; progress lives in `.dsh-english/recall.json`, and deleting that file starts from scratch.
 - The practice direction can be switched at any time and is remembered in the browser; `recall.mode` in the host config is only the default for the first visit.
+
+### Graph
+
+- The fourth view, **Graph**, draws how the material connects: **transcript nodes** (your podcasts and imported documents) and **word nodes** (the wordbook's words), joined by four kinds of links — all derived locally, with no model call and nothing written to disk:
+  - **occurs / source** (transcript ↔ word): the word (and its word forms; case-insensitive, apostrophes and hyphens normalized) actually appears in that transcript. The transcript a word was captured from is marked **source** and carries the sentence it was saved from; the other transcripts show how many times the word occurs there.
+  - **same sentence** (word ↔ word): the two words are used in the same sentence of a transcript.
+  - **root / family** (word ↔ word): they share a meaningful etymology root (affixes such as `ad-` / `in-` are ignored) or a word form one of them lists.
+  - **shared meaning** (word ↔ word): their Chinese meanings contain the same fragment.
+- Interactions: **drag** a node, **scroll** or use **+ / −** to zoom, **Reset view** to fit everything; the segmented control filters to transcript ↔ word or word ↔ word links only; the **search box** finds a word or transcript and centres it; clicking a node opens a **detail panel** (meanings, mastery ring, example, related transcripts and words) where **Open transcript** jumps to the reader with that file selected and **Only this transcript** narrows the graph to one transcript's words.
+- The graph is read-only and recomputed from `transcripts/`, `vocab/vocabulary.json` and the review progress on every visit; it stores no new file. Deleting a word or a transcript removes its node and links on the next visit. On a very large workspace the view keeps the most connected words and transcripts and reports how many it trimmed.
 
 ### PDF import
 
@@ -262,13 +274,13 @@ The desktop plugin row is owned by the Electron profile: use **Remove** then **A
 | Path | Purpose |
 |---|---|
 | `index.js` | Plugin entry: `name` / `inject` / `apply(ctx)`, assembly only (~22 lines) |
-| `host/` | Host half, 15 modules: `analysis` / `api` / `asr` / `config` / `env` / `json-store` / `lookup` / `paths` / `pdf` / `recall` / `senses` / `text` / `tools` / `transcript` / `vocab` |
+| `host/` | Host half, 16 modules: `analysis` / `api` / `asr` / `config` / `env` / `graph` / `json-store` / `lookup` / `paths` / `pdf` / `recall` / `senses` / `text` / `tools` / `transcript` / `vocab` |
 | `client.js` | Client half: single-file `window.__ModuleLoader__.load` bundle (§0–§9 partitions) |
 | `cordis.patch.yml` | Bundle patch (insert id `english-practice`) |
 | `locale/{zh,en}.json` | Plugin-page metadata (title / description) |
 | `icon.svg` | Plugin-page icon |
 | `assets/bailian-cli/` | README screenshots (8 PNGs) |
-| `tests/` | `node --test` unit + contract + integration tests (14 `*.test.mjs`) |
+| `tests/` | `node --test` unit + contract + integration tests (15 `*.test.mjs`) |
 | `AGENTS.md` | Maintainer contract: architecture, frozen interfaces, release flow |
 | `README.md` / `README.zh.md` | English / Chinese docs |
 | `CHANGELOG.md` | Changelog (Keep a Changelog) |
@@ -280,11 +292,11 @@ Published npm contents follow `package.json#files`: `index.js`, `host/`, `client
 
 ## Development notes
 
-- **Zero build**: the Host half is Node ESM (`index.js` assembles, `host/` holds the 15 modules), the Client half is a hand-written single-file `client.js` (`window.__ModuleLoader__.load` bundle, §0–§9 partitions). No TypeScript, no bundler, no runtime dependencies.
+- **Zero build**: the Host half is Node ESM (`index.js` assembles, `host/` holds the 16 modules), the Client half is a hand-written single-file `client.js` (`window.__ModuleLoader__.load` bundle, §0–§9 partitions). No TypeScript, no bundler, no runtime dependencies.
 - **Host changes**: restart DSH (quit and reopen the desktop app; restart the process for CLI / `dsh web`).
 - **Client changes**: just refresh the page (the bundle is resolved by package and re-fetched when its content changes).
 - **`package.json`'s `dsh` manifest or `cordis.patch.yml` changes**: restart DSH.
-- **Checks**: `npm run check` (`node --check index.js` + `node --check client.js` + `node --test`, which auto-discovers `tests/*.test.mjs`); requires **Node 20+**. Currently 14 test files (unit + contract + integration), all green.
+- **Checks**: `npm run check` (`node --check index.js` + `node --check client.js` + `node --test`, which auto-discovers `tests/*.test.mjs`); requires **Node 20+**. Currently 15 test files (unit + contract + integration), all green.
 - **Local development**: the package is `dsh-increasing-my-english`; the desktop profile installs this checkout via `link:`. A rename must update `package.json`, `cordis.patch.yml`, `client.js` PKG and loader id, and the locale meta.
 - **Stable identifiers (do not rename)**: `.dsh-english/`, `/dsh-english/api`, the `x-english-practice` header, tool names `english_transcribe` / `english_vocab`, tab kind `english-reader`, locale NS `englishPractice`, patch row id `english-practice`, and the recall data file `.dsh-english/recall.json` (`version: 1`).
 

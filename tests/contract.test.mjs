@@ -71,6 +71,22 @@ const REQUIRED_ANALYSIS_KEYS = [
   'toast.analyzed', 'toast.analyzeSkipped', 'toast.analyzeFailed', 'error.analysisDisabled',
 ]
 
+// Spec: the graph (图谱) view must ship these keys in BOTH dictionaries. The
+// set-equality test keeps zh/en in sync; this list also catches a key that was
+// dropped from both languages by accident.
+const REQUIRED_GRAPH_KEYS = [
+  'mode.graph',
+  'graph.loading', 'graph.failed', 'graph.retry', 'graph.refresh',
+  'graph.summary', 'graph.emptyWords', 'graph.emptyTranscripts', 'graph.emptyLinks',
+  'graph.filterAll', 'graph.filterDoc', 'graph.filterWord',
+  'graph.search', 'graph.searchEmpty', 'graph.resetView',
+  'graph.detailEmpty', 'graph.kindWord', 'graph.kindTranscript',
+  'graph.openTranscript', 'graph.scopeTranscript', 'graph.clearScope',
+  'graph.legendWord', 'graph.legendTranscript', 'graph.legendAppears',
+  'graph.legendCooccur', 'graph.legendMorph', 'graph.legendSense',
+  'graph.truncated', 'graph.isolated', 'graph.ariaLabel', 'graph.close',
+]
+
 /**
  * Statically extract one flat i18n dictionary from client.js — no evaluation of
  * the plugin bundle (no eval / new Function / vm, and no import of client.js).
@@ -125,6 +141,10 @@ test('client.js zh / en i18n dictionaries have exactly the same keys', async () 
     assert.ok(en.includes(key), 'missing en key: ' + key)
   }
   for (const key of REQUIRED_ANALYSIS_KEYS) {
+    assert.ok(zh.includes(key), 'missing zh key: ' + key)
+    assert.ok(en.includes(key), 'missing en key: ' + key)
+  }
+  for (const key of REQUIRED_GRAPH_KEYS) {
     assert.ok(zh.includes(key), 'missing zh key: ' + key)
     assert.ok(en.includes(key), 'missing en key: ' + key)
   }
