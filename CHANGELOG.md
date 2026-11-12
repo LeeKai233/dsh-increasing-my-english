@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-12
+
 ### Added
 
 - README 开头新增精简版「让 Agent 带你跑起来」引导：短提示词只保留索引、边界与三段回报，详细步骤拆到 `AGENT_ONBOARDING.md` / `AGENT_ONBOARDING.zh.md`，按链接、raw URL 或挂载文件读取。
@@ -52,5 +54,6 @@ First public release of the DSH "English Practice" plugin (npm package `dsh-incr
 - 路径与文件名加固：`..` 规范化 + 工作区包含检查，拒绝 Windows 保留名与尾点/尾空格，文件名用 `wx` 原子占位消除 TOCTOU。
 - HTTP 网关仅回环地址、`Origin`/`Host` 同源校验 + 自定义请求头，限流、请求体上限与对外脱敏文案。
 
-[Unreleased]: https://github.com/LeeKai233/dsh-increasing-my-english/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/LeeKai233/dsh-increasing-my-english/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/LeeKai233/dsh-increasing-my-english/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/LeeKai233/dsh-increasing-my-english/releases/tag/v0.1.0

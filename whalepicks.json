@@ -2,7 +2,7 @@
   "schemaVersion": "1.1",
   "id": "dsh-increasing-my-english",
   "name": "dsh-increasing-my-english",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": {
     "zh": "把播客录音转成分角色文稿在右侧边栏精读，Ctrl 划词查词并存进带音标、释义、词形与词源的生词本；插件空闲时在后台对比全部文稿自动补全单词的其它义项，再按掌握度做每日背记复习。",
     "en": "Speaker-diarized podcast transcripts in the right sidebar, Ctrl word lookup, a wordbook with phonetics, meanings, word forms and etymology that fills in the word's other senses from every transcript while idle, and spaced daily review."
@@ -72,7 +72,7 @@
       "transcripts.list": 4000,
       "job": 1500
     },
-    "timers": 2
+    "timers": 3
   },
   "cost": {
     "license": "MIT",

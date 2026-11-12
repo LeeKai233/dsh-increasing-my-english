@@ -129,3 +129,24 @@ test('client.js zh / en i18n dictionaries have exactly the same keys', async () 
     assert.ok(en.includes(key), 'missing en key: ' + key)
   }
 })
+
+test('release metadata is consistent: package.json, whalepicks.json and CHANGELOG', async () => {
+  const pkg = JSON.parse(await readText('package.json'))
+  const manifest = JSON.parse(await readText('whalepicks.json'))
+  assert.equal(manifest.id, pkg.name)
+  assert.equal(manifest.name, pkg.name)
+  assert.equal(manifest.version, pkg.version)
+  assert.equal(manifest.install?.spec, pkg.name)
+  assert.equal(manifest.runtime?.dsh, pkg.engines.dsh)
+  const manifestBundle = String(manifest.patches?.bundle ?? '').replace('./', '')
+  const packageBundle = String(pkg.dsh?.bundle?.patch ?? '').replace('./', '')
+  assert.equal(manifestBundle, packageBundle)
+  const changelog = await readText('CHANGELOG.md')
+  const heading = '## [' + pkg.version + '] - '
+  const released = changelog.split('\n').some((line) => {
+    if (!line.startsWith(heading)) return false
+    const date = line.slice(heading.length)
+    return date.length === 10 && date[4] === '-' && date[7] === '-'
+  })
+  assert.ok(released, 'CHANGELOG must contain a dated ' + pkg.version + ' section')
+})
