@@ -358,7 +358,8 @@ export function createHost(ctx, overrides = {}) {
     let timer
     const timeout = new Promise((resolvePromise, reject) => {
       timer = setTimeout(() => reject(new DomainError('internal', '请求处理超时')), ms)
-      timer.unref?.()
+      // Keep this timer referenced: it is the only handle that can settle a
+      // stalled handler, so unref() would let the loop exit before the timeout.
     })
     return Promise.race([promise, timeout]).finally(() => clearTimeout(timer))
   }

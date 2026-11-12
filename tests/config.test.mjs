@@ -149,7 +149,13 @@ test('toolTimeoutMinutes always exceeds maxJobMinutes', () => {
 test('executableProblem rejects multi-segment commands and relative paths', () => {
   assert.equal(executableProblem('bl'), undefined)
   assert.equal(executableProblem('/usr/local/bin/bl'), undefined)
-  assert.equal(executableProblem('C:\\tools\\bl.exe'), undefined)
+  if (process.platform === 'win32') {
+    assert.equal(executableProblem('C:\\tools\\bl.exe'), undefined)
+  } else {
+    // A Windows drive path is just a relative file name on POSIX, so it must
+    // be rejected instead of being handed to spawn() as an executable.
+    assert.match(executableProblem('C:\\tools\\bl.exe'), /相对路径/)
+  }
   assert.notEqual(executableProblem('bl --flag'), undefined)
   assert.notEqual(executableProblem('bl && calc'), undefined)
   assert.notEqual(executableProblem('C:\\Program Files\\bl.exe'), undefined)
@@ -160,9 +166,16 @@ test('executableProblem rejects multi-segment commands and relative paths', () =
 
 test('resolveExecutable prefers a valid env override and falls back otherwise', () => {
   assert.deepEqual(resolveExecutable('bl', {}), { command: 'bl', source: 'default', warning: undefined })
-  const absolute = resolveExecutable('bl', { DSH_ENGLISH_BL: 'C:\\tools\\bl.exe' })
-  assert.equal(absolute.command, 'C:\\tools\\bl.exe')
+  // Use an override that is absolute on the host running the tests.
+  const absolutePath = process.platform === 'win32' ? 'C:\\tools\\bl.exe' : '/usr/local/bin/bl'
+  const absolute = resolveExecutable('bl', { DSH_ENGLISH_BL: absolutePath })
+  assert.equal(absolute.command, absolutePath)
   assert.equal(absolute.source, 'env')
+  if (process.platform !== 'win32') {
+    const foreign = resolveExecutable('bl', { DSH_ENGLISH_BL: 'C:\\tools\\bl.exe' })
+    assert.equal(foreign.command, 'bl')
+    assert.match(foreign.warning, /DSH_ENGLISH_BL/)
+  }
   const invalid = resolveExecutable('bl', { DSH_ENGLISH_BL: 'bl | calc' })
   assert.equal(invalid.command, 'bl')
   assert.equal(invalid.source, 'default')

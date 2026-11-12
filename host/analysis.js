@@ -250,7 +250,9 @@ export function createAnalysisService(options = {}) {
         controller.abort(timeoutError)
         reject(timeoutError)
       }, analysisCfg.timeoutMs)
-      timer.unref?.()
+      // Deliberately NOT unref()'d: this timeout is the only thing that settles
+      // the model call when the backend hangs, and an unref'd timer lets the
+      // event loop exit (or a one-shot runner cancel the test) before it fires.
     })
     let onAbort
     const cancelled = new Promise((_resolve, reject) => {
