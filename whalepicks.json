@@ -2,10 +2,10 @@
   "schemaVersion": "1.1",
   "id": "dsh-increasing-my-english",
   "name": "dsh-increasing-my-english",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": {
-    "zh": "把播客录音转成分角色文稿在右侧边栏精读，Ctrl 划词查词并存进带音标、释义、词形与词源的生词本；插件空闲时在后台对比全部文稿自动补全单词的其它义项，再按掌握度做每日背记复习。",
-    "en": "Speaker-diarized podcast transcripts in the right sidebar, Ctrl word lookup, a wordbook with phonetics, meanings, word forms and etymology that fills in the word's other senses from every transcript while idle, and spaced daily review."
+    "zh": "把播客录音转成分角色文稿在右侧边栏精读，Ctrl 划词查词并存进带音标、释义、词形与词源的生词本；插件空闲时在后台对比全部文稿自动补全单词的其它义项，再按掌握度做每日背记复习，并用只读关系图展示文稿与单词、单词与单词之间的联系。",
+    "en": "Speaker-diarized podcast transcripts in the right sidebar, Ctrl word lookup, a wordbook with phonetics, meanings, word forms and etymology that fills in the word's other senses from every transcript while idle, spaced daily review, and a read-only graph of how transcripts and words connect."
   },
   "category": "other",
   "keywords": [
@@ -18,7 +18,8 @@
     "bailian",
     "pdf",
     "srs",
-    "review"
+    "review",
+    "graph"
   ],
   "scope": {
     "does": [
@@ -27,6 +28,7 @@
       "插件空闲时后台对比全部文稿，自动把同一单词在其它文稿里的义项（带语境例句与来源）补进生词本",
       "多义分析只在语料或词条变化后重跑，可在配置里关闭或调整空闲阈值与批量",
       "按掌握度做每日背记：到期词 + 新词固定一轮，英→中 / 中→英 / 混合主动回忆",
+      "用只读关系图展示文稿↔单词、单词↔单词的联系（出现/来源、同句共现、同根同族、近义）",
       "导入 PDF/文本并支持划词查词与环境自检"
     ],
     "doesNot": [

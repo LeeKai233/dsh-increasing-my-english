@@ -5,7 +5,18 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.2.0] - 2026-11-13
+
+### Fixed
+
+- **文稿视图记住上次打开的那一篇**：面板重开、刷新页面或切换会话时，不再自动跳到最新转写的一篇，而是回到浏览器本地记录的「上次打开」；只有这一篇已被删除或不在当前工作区时，才回退到最新一篇（下拉框手动切换同样会被记住）。
+- **生词本重复释义合并**：词典释义与多义分析给出的近义条目不再并排显示。按中文义项片段折叠——片段集合相同或一条被另一条完全覆盖时视为同一条释义，保留更完整的写法并把缺失的例句/来源回填（例如 `v. 介入；干预；调停` 吸收 `v. 介入；干预` 与 `n. 干预；介入`，`n. 丑闻` 与 `n. 丑闻（尤指性丑闻）` 合并，`风流韵事；婚外情` 与 `婚外情；风流韵事` 合并）；跨词性只在片段集合严格包含时合并，`n. 增加` / `v. 增加` 这类同词不同性的义项保持独立。规则实现在 `host/text.js`（`collapseMeanings` / `mergeMeaningPair`），写入（`normalizeMeanings`、`mergeSenses`）、`vocab/生词本.md` 导出与 `english_vocab list` 返回都走同一份实现；`client.js` §3 有同规则的展示副本，作用于生词卡、背记卡、图谱详情与查词浮窗，历史重复数据不再显示（下次改写该词条时落盘收敛）。
+
+### Added
+
+- 新增面板第四个视图「**图谱**」：用只读关系图展示**文稿 ↔ 单词**与**单词 ↔ 单词**的联系，全部由工作区数据现算（不调用模型、不写任何文件、不新增数据格式与配置项）。四类联系：`appears`（词及其词形按整词命中统计出现次数，同一句重复出现也按多次计；单词被收录时所在的那篇标为「来源」并带例句，其它文稿显示出现次数）、`cooccur`（两个词在同一句里共现）、`morph`（共享有意义的词源词根，或一个词形出现在另一词条的词形表里）、`sense`（共享中文义项片段）。词形匹配按整 token 归一（大小写、撇号、连字符、多词短语），同根过滤 `ad-` / `in-` 等词缀噪音。
+- 图谱交互：Canvas 2D + 自写力导向布局（零依赖、零构建）；拖动节点、滚轮或按钮缩放、复位视图、按联系类型筛选（全部 / 文稿-单词 / 单词-单词）、搜索并居中、「只看这篇文稿」、点击节点查看释义 / 掌握度弧环 / 例句 / 关联清单，并可从详情「打开文稿」跳回文稿视图；节点与链接有上限（400 词 / 80 篇文稿 / 2M 字符预算 / 每词 appears 12 条、cooccur 8 条），节点超限按关联度保留、链接超限按稳定顺序截断，并在面板提示；配色经 `getComputedStyle` 读取宿主主题变量，深浅色自动跟随。
+- 新增只读 HTTP action `graph.overview`（网关预算 30s、只读去重）与 `host/graph.js`（纯函数 `buildGraph` + 只读服务 `createGraphService`，复用 `host/senses.js` 的切句与词形）；新增 `tests/graph.test.mjs`，契约测试新增 `REQUIRED_GRAPH_KEYS`，集成测试新增 `graph.overview` HTTP 子测试。
 
 ## [0.1.1] - 2026-11-12
 
@@ -54,6 +65,7 @@ First public release of the DSH "English Practice" plugin (npm package `dsh-incr
 - 路径与文件名加固：`..` 规范化 + 工作区包含检查，拒绝 Windows 保留名与尾点/尾空格，文件名用 `wx` 原子占位消除 TOCTOU。
 - HTTP 网关仅回环地址、`Origin`/`Host` 同源校验 + 自定义请求头，限流、请求体上限与对外脱敏文案。
 
-[Unreleased]: https://github.com/LeeKai233/dsh-increasing-my-english/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/LeeKai233/dsh-increasing-my-english/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/LeeKai233/dsh-increasing-my-english/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/LeeKai233/dsh-increasing-my-english/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/LeeKai233/dsh-increasing-my-english/releases/tag/v0.1.0
