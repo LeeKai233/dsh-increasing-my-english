@@ -8,9 +8,11 @@ import { createWorkspaceStore } from '../host/json-store.js'
 import { DomainError } from '../host/paths.js'
 import {
   MAX_FAMILY,
+  MAX_MEANINGS,
   applyVocabPatch,
   cleanSource,
   createVocabService,
+  normalizeAnalysis,
   normalizeEntry,
   normalizeEtymology,
   normalizeFamily,
@@ -226,4 +228,200 @@ test('update and remove validate their inputs', async (t) => {
   const added = await service.add(root, CONFIG, { kind: 'word', word: 'temp' })
   await service.remove(root, { ids: [added.id] })
   await assert.rejects(() => service.enrich(root, CONFIG, { id: 'missing' }), (error) => codeOf(error) === 'vocab/not-found')
+})
+
+test('normalizeMeanings keeps evidence fields and merges duplicates', () => {
+  const meanings = normalizeMeanings([
+    { pos: 'n.', zh: '例子' },
+    { pos: 'N.', zh: ' 例子 ', example: ' An example. ', source: { transcript: 't.json', title: 'Podcast', speaker: '0', startMs: 1200.4 } },
+    { pos: 'v.', zh: '举例', example: 'x'.repeat(500) },
+    { pos: 'n.', zh: '例子', example: 'ignored duplicate example' },
+    { pos: 'n.', zh: '例子', source: { transcript: '', title: '', speaker: '', startMs: 0 } },
+  ])
+  assert.equal(meanings.length, 2)
+  assert.deepEqual(meanings[0], {
+    pos: 'n.',
+    zh: '例子',
+    example: 'An example.',
+    source: { transcript: 't.json', title: 'Podcast', speaker: '0', startMs: 1200 },
+  })
+  assert.equal(meanings[1].example.length, 400)
+  assert.equal('source' in meanings[1], false)
+  // Empty / all-default provenance is dropped instead of persisted as noise.
+  assert.deepEqual(normalizeMeanings([{ pos: 'n.', zh: '空', source: { transcript: '', title: '', speaker: '', startMs: 0 } }]), [{ pos: 'n.', zh: '空' }])
+  // Default limit is still 3; the new exported ceiling is 8.
+  assert.equal(normalizeMeanings(Array.from({ length: 6 }, (_value, index) => ({ pos: 'n.', zh: '义' + index }))).length, 3)
+  assert.equal(normalizeMeanings(Array.from({ length: 12 }, (_value, index) => ({ pos: 'n.', zh: '义' + index })), { limit: MAX_MEANINGS }).length, 8)
+  assert.equal(MAX_MEANINGS, 8)
+})
+
+test('applyVocabPatch backfills meaning evidence when meanings are replaced', () => {
+  const target = {
+    kind: 'word',
+    word: 'example',
+    ipa: '/ig/',
+    status: 'done',
+    meanings: [
+      {
+        pos: 'n.',
+        zh: '例子',
+        example: 'An example.',
+        source: { transcript: 't.json', title: 'Podcast', speaker: '', startMs: 0 },
+      },
+    ],
+  }
+  applyVocabPatch(target, {
+    meanings: [
+      { pos: 'N.', zh: '例子' },
+      { pos: 'v.', zh: '举例' },
+    ],
+  })
+  assert.equal(target.status, 'done')
+  assert.deepEqual(target.meanings[0], {
+    pos: 'N.',
+    zh: '例子',
+    example: 'An example.',
+    source: { transcript: 't.json', title: 'Podcast', speaker: '', startMs: 0 },
+  })
+  assert.deepEqual(target.meanings[1], { pos: 'v.', zh: '举例' })
+  // Evidence supplied by the patch itself always wins over the old evidence.
+  applyVocabPatch(target, { meanings: [{ pos: 'n.', zh: '例子', example: '新例句' }] })
+  assert.equal(target.meanings[0].example, '新例句')
+  assert.equal('source' in target.meanings[0], true)
+})
+
+test('normalizeAnalysis validates and cleans the analysis record', () => {
+  assert.equal(normalizeAnalysis(null), undefined)
+  assert.equal(normalizeAnalysis({}), undefined)
+  assert.equal(normalizeAnalysis({ status: 'weird', fingerprint: 'abc' }), undefined)
+  assert.equal(normalizeAnalysis({ status: 'done', fingerprint: '   ' }), undefined)
+  assert.equal(normalizeAnalysis({ status: 'done', fingerprint: 'x'.repeat(201) }), undefined)
+
+  const done = normalizeAnalysis({
+    version: 99,
+    at: '2026-01-02T03:04:05.000Z',
+    status: 'done',
+    fingerprint: ' fp-1 ',
+    contexts: '5',
+    transcripts: 2.4,
+    added: '3',
+    error: 'ignored outside failed',
+  })
+  assert.deepEqual(done, {
+    version: 1,
+    at: '2026-01-02T03:04:05.000Z',
+    status: 'done',
+    fingerprint: 'fp-1',
+    contexts: 5,
+    transcripts: 2,
+    added: 3,
+  })
+  assert.equal('error' in done, false)
+
+  const skipped = normalizeAnalysis({ status: 'skipped', fingerprint: 'fp', at: 'not-a-date', contexts: -2, added: 9 })
+  assert.equal(skipped.added, 0)
+  assert.equal(skipped.contexts, 0)
+  assert.equal(skipped.transcripts, 0)
+  assert.match(skipped.at, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)
+
+  const failed = normalizeAnalysis({ status: 'failed', fingerprint: 'fp', error: '错'.repeat(400), added: 7 })
+  assert.equal(failed.added, 0)
+  assert.equal(failed.error.length, 300)
+  assert.equal(normalizeAnalysis({ status: 'failed', fingerprint: 'fp' }).error, undefined)
+})
+
+test('applyAnalysis persists meanings and analysis and rewrites the markdown', async (t) => {
+  const root = await tempDir(t)
+  const { service } = createService()
+  const added = await service.add(root, CONFIG, {
+    kind: 'word',
+    word: 'example',
+    ipa: '/ig/',
+    meanings: [
+      { pos: 'n.', zh: '例子', example: 'An example.', source: { transcript: 't.json', title: 'Podcast', speaker: '0', startMs: 1200 } },
+    ],
+    source: { title: 'Podcast', speaker: '0', startMs: 65000 },
+  })
+  const result = await service.applyAnalysis(root, added.id, {
+    meanings: [
+      { pos: 'n.', zh: '例子', example: 'An example.', source: { transcript: 't.json', title: 'Podcast', speaker: '0', startMs: 1200 } },
+      { pos: 'v.', zh: '举例', example: 'Example it.' },
+    ],
+    analysis: { status: 'done', fingerprint: 'fp-1', at: '2026-01-02T03:04:05.000Z', contexts: 4, transcripts: 2, added: 1 },
+  })
+  assert.equal(result.id, added.id)
+  assert.equal(result.entry.analysis.status, 'done')
+  assert.equal(result.entry.analysis.version, 1)
+  assert.equal(result.entry.meanings.length, 2)
+
+  const stored = JSON.parse(await readFile(join(root, 'vocab', 'vocabulary.json'), 'utf8'))
+  assert.equal(stored.version, 1)
+  assert.deepEqual(stored.words[0].analysis, {
+    version: 1,
+    at: '2026-01-02T03:04:05.000Z',
+    status: 'done',
+    fingerprint: 'fp-1',
+    contexts: 4,
+    transcripts: 2,
+    added: 1,
+  })
+  assert.equal(stored.words[0].meanings[1].example, 'Example it.')
+
+  const markdown = await readFile(join(root, 'vocab', '生词本.md'), 'utf8')
+  assert.match(markdown, /  - 例：An example\.（Podcast）/)
+  assert.match(markdown, /  - 例：Example it\./)
+  assert.match(markdown, /  - 多义分析：4 处 · 2 篇文稿/)
+  assert.ok(markdown.indexOf('- 来源：') < markdown.indexOf('- 多义分析：'))
+})
+
+test('applyAnalysis rejects sentence entries and unknown ids', async (t) => {
+  const root = await tempDir(t)
+  const { service } = createService()
+  const sentence = await service.add(root, CONFIG, { kind: 'sentence', text: 'Hello world.', translation: '你好世界。' })
+  await assert.rejects(
+    () => service.applyAnalysis(root, sentence.id, { analysis: { status: 'skipped', fingerprint: 'fp' } }),
+    (error) => codeOf(error) === 'vocab/invalid-entry',
+  )
+  await assert.rejects(
+    () => service.applyAnalysis(root, 'missing', { analysis: { status: 'skipped', fingerprint: 'fp' } }),
+    (error) => codeOf(error) === 'vocab/not-found',
+  )
+})
+
+test('vocabularyMarkdown renders example evidence and all analysis states', () => {
+  const base = {
+    kind: 'word',
+    word: 'sense',
+    ipa: '/sens/',
+    status: 'done',
+    meanings: [
+      { pos: 'n.', zh: '感觉', example: 'A sense of wonder.' },
+      { pos: 'v.', zh: '感觉到', example: 'I sense it.', source: { title: 'Talk' } },
+    ],
+  }
+  const done = vocabularyMarkdown({
+    words: [
+      {
+        ...base,
+        source: { title: 'Podcast', speaker: '0', startMs: 65000 },
+        analysis: { version: 1, at: '2026-01-02T03:04:05.000Z', status: 'done', fingerprint: 'fp', contexts: 3, transcripts: 2, added: 1 },
+      },
+    ],
+  })
+  assert.match(done, /  - 例：A sense of wonder\.\n/)
+  assert.match(done, /  - 例：I sense it\.（Talk）/)
+  assert.match(done, /  - 多义分析：3 处 · 2 篇文稿/)
+  assert.ok(done.indexOf('- 来源：') < done.indexOf('- 多义分析：'))
+
+  const skipped = vocabularyMarkdown({
+    words: [{ ...base, analysis: { version: 1, at: '2026-01-02T03:04:05.000Z', status: 'skipped', fingerprint: 'fp', contexts: 1, transcripts: 1, added: 0 } }],
+  })
+  assert.match(skipped, /多义分析：没有更多上下文/)
+
+  const failed = vocabularyMarkdown({
+    words: [{ ...base, analysis: { version: 1, at: '2026-01-02T03:04:05.000Z', status: 'failed', fingerprint: 'fp', contexts: 0, transcripts: 0, added: 0, error: '模型超时' } }],
+  })
+  assert.match(failed, /多义分析：失败（模型超时）/)
+
+  assert.equal(vocabularyMarkdown({ words: [base] }).includes('多义分析'), false)
 })

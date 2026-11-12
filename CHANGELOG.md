@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - README 开头新增精简版「让 Agent 带你跑起来」引导：短提示词只保留索引、边界与三段回报，详细步骤拆到 `AGENT_ONBOARDING.md` / `AGENT_ONBOARDING.zh.md`，按链接、raw URL 或挂载文件读取。
+- 新增「背记」视图：把生词本单词做成 **英→中 / 中→英 / 混合** 三种方式的主动回忆练习，按「忘记 / 模糊 / 记得 / 熟练」自评更新掌握度 0–5，并按 1 / 1 / 2 / 4 / 7 / 15 天安排下次复习；每天首次打开生成**当天固定一轮**（到期词优先 + 每日新词上限 + 总题量上限，当天不重排），答题卡支持「**显示例句**」提示（中→英时把目标词挖空成等长下划线），答完显示完成情况、连续天数、最近 14 天记录；「掌握情况」是**独立页面**（顶部「今日复习 / 掌握情况」标签切换），表格按掌握度排序列出单词 / 掌握度进度条 / 等级 / 下次复习 / 操作（各列左对齐），可单个或全部重置；进度存于 `.dsh-english/recall.json`，删除生词本词条后自动清理。
+- 新增 HTTP action `recall.overview` / `recall.grade` / `recall.reset`，新增配置 `recall.newPerDay` / `recall.dailyLimit` / `recall.mode`（默认 10 / 30 / `mix`）与错误码 `recall/invalid`、`recall/not-found`；面板视图切换变为「文稿 / 生词本 / 背记」三视图。
+- 生词本**自动多义分析**：后台在插件空闲（最近 `analysis.idleMinutes` 内没有插件请求）时扫描当前工作区的全部文稿，找出每个单词在各文稿里的真实用法，调用查词后端把「别的文稿里的其它意思」追加进词条；新义项带 `example` 语境例句与 `source` 来源证据，既有释义只补证据不覆盖，最多保留 8 条，上下文不足 2 条时只标记跳过、不调用模型。只在语料/词形/原例句变化或失败重试窗口到期后才重新分析，不重复消耗模型；后台每批最多 `analysis.batchWords` 个词、批间 20s，避免影响前台使用。
+- 生词卡新增多义展示与「分析多义」按钮；新增 HTTP action `vocab.analyze` 与 agent 工具动作 `english_vocab { action: "analyze" }`；新增 `host/senses.js`（语料切句/命中、上下文收集、提示词、结果归一化、义项合并、语料指纹）与 `host/analysis.js`（分析流水线 + 空闲调度）。
+- 新增可选数据字段 `meanings[].example` / `meanings[].source` / `entry.analysis`（`version` 仍为 1；旧数据与旧客户端不受影响），新增配置 `analysis.*`（`enabled` / `idleMinutes` / `batchWords` / `maxContexts` / `maxContextChars` / `timeoutMs` / `retryMinutes`）与错误码 `analysis/disabled`。
 
 ## [0.1.0] - 2026-11-11
 

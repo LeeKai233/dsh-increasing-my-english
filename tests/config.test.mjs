@@ -31,11 +31,64 @@ test('DEFAULT_CONFIG matches the frozen contract and carries no executable paths
   assert.equal(DEFAULT_CONFIG.asr.toolTimeoutMinutes, 32)
   assert.deepEqual(DEFAULT_CONFIG.lookup, { backend: 'ds', provider: null, model: null, timeoutMs: 20000 })
   assert.deepEqual(DEFAULT_CONFIG.import, { maxPdfPages: 120, dpi: 100 })
+  assert.deepEqual(DEFAULT_CONFIG.recall, { newPerDay: 10, dailyLimit: 30, mode: 'mix' })
+  assert.deepEqual(DEFAULT_CONFIG.analysis, { enabled: true, idleMinutes: 3, batchWords: 2, maxContexts: 6, maxContextChars: 240, timeoutMs: 30000, retryMinutes: 10 })
   assert.deepEqual(DEFAULT_CONFIG.dirs, { recordings: 'recordings', transcripts: 'transcripts' })
   assert.equal('blPath' in DEFAULT_CONFIG, false)
   assert.equal('pdfToPpmPath' in DEFAULT_CONFIG.import, false)
   assert.equal('pdfToTextPath' in DEFAULT_CONFIG.import, false)
   assert.ok(Object.isFrozen(DEFAULT_CONFIG))
+  assert.ok(Object.isFrozen(DEFAULT_CONFIG.recall))
+  assert.ok(Object.isFrozen(DEFAULT_CONFIG.analysis))
+})
+
+test('recall config: defaults, legal overrides and invalid fallbacks', () => {
+  const empty = normalizeConfig({})
+  assert.deepEqual(empty.config.recall, { newPerDay: 10, dailyLimit: 30, mode: 'mix' })
+  assert.deepEqual(empty.warnings, [])
+
+  const custom = normalizeConfig({ recall: { newPerDay: 0, dailyLimit: 5, mode: 'zh-en' } })
+  assert.deepEqual(custom.config.recall, { newPerDay: 0, dailyLimit: 5, mode: 'zh-en' })
+  assert.deepEqual(custom.warnings, [])
+
+  const coerced = normalizeConfig({ recall: { newPerDay: '7', dailyLimit: 30.4, mode: 'en-zh' } }).config.recall
+  assert.deepEqual(coerced, { newPerDay: 7, dailyLimit: 30, mode: 'en-zh' })
+
+  const invalid = normalizeConfig({ recall: { newPerDay: -1, dailyLimit: 500, mode: 'nope' } })
+  assert.deepEqual(invalid.config.recall, DEFAULT_CONFIG.recall)
+  const invalidWarnings = invalid.warnings.join('\n')
+  assert.match(invalidWarnings, /recall\.newPerDay/)
+  assert.match(invalidWarnings, /recall\.dailyLimit/)
+  assert.match(invalidWarnings, /recall\.mode/)
+
+  const wrongTypes = normalizeConfig({ recall: { newPerDay: 'abc', dailyLimit: null } })
+  assert.deepEqual(wrongTypes.config.recall, DEFAULT_CONFIG.recall)
+  assert.ok(wrongTypes.warnings.length >= 2)
+
+  const nonObject = normalizeConfig({ recall: 'nope' })
+  assert.deepEqual(nonObject.config.recall, DEFAULT_CONFIG.recall)
+  assert.match(nonObject.warnings.join('\n'), /recall 必须是对象/)
+})
+
+test('analysis config: defaults, legal overrides and invalid fallbacks', () => {
+  const empty = normalizeConfig({})
+  assert.deepEqual(empty.config.analysis, DEFAULT_CONFIG.analysis)
+  assert.deepEqual(empty.warnings, [])
+
+  const custom = normalizeConfig({ analysis: { enabled: false, idleMinutes: 1.5, batchWords: 5, timeoutMs: 45000 } })
+  assert.deepEqual(custom.config.analysis, { ...DEFAULT_CONFIG.analysis, enabled: false, idleMinutes: 1.5, batchWords: 5, timeoutMs: 45000 })
+  assert.deepEqual(custom.warnings, [])
+
+  const invalid = normalizeConfig({ analysis: { enabled: 'yes', idleMinutes: 0, batchWords: 0, maxContexts: 99, maxContextChars: 1, timeoutMs: 1, retryMinutes: 0 } })
+  assert.deepEqual(invalid.config.analysis, DEFAULT_CONFIG.analysis)
+  const joined = invalid.warnings.join('\n')
+  for (const key of ['enabled', 'idleMinutes', 'batchWords', 'maxContexts', 'maxContextChars', 'timeoutMs', 'retryMinutes']) {
+    assert.match(joined, new RegExp('analysis\\.' + key))
+  }
+
+  const nonObject = normalizeConfig({ analysis: 'nope' })
+  assert.deepEqual(nonObject.config.analysis, DEFAULT_CONFIG.analysis)
+  assert.match(nonObject.warnings.join('\n'), /analysis 必须是对象/)
 })
 
 test('empty config equals the defaults', () => {

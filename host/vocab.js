@@ -14,7 +14,7 @@ import { formatClock } from './text.js'
 
 export const MAX_LOOKUP_TEXT = 400
 export const MAX_WORD = 120
-const MAX_MEANINGS = 8
+export const MAX_MEANINGS = 8
 export const MAX_FAMILY = 8
 const MAX_PARTS = 6
 const EMPTY_VOCAB = Object.freeze({ version: 1, words: [] })
@@ -23,14 +23,59 @@ function sha1(text) {
   return createHash('sha1').update(text).digest('hex')
 }
 
-/** Normalize an array of {pos, zh} meanings. */
+/** Longest evidence example kept on a meaning (optional field, frozen format). */
+const MAX_EXAMPLE = 400
+
+/** Key used to merge meanings that only differ in pos casing. */
+function meaningKey(pos, zh) {
+  return pos.toLowerCase() + '\u0000' + zh
+}
+
+/** Extract the optional {example?, source?} evidence from a raw meaning item. */
+function meaningEvidence(item) {
+  const evidence = {}
+  if (typeof item.example === 'string') {
+    const example = item.example.trim()
+    if (example !== '') evidence.example = example.length > MAX_EXAMPLE ? example.slice(0, MAX_EXAMPLE) : example
+  }
+  if (isRecord(item.source)) {
+    const source = cleanSource(item.source)
+    if (source.transcript !== '' || source.title !== '' || source.speaker !== '' || source.startMs > 0) evidence.source = source
+  }
+  return evidence
+}
+
+/** True when the normalized meaning already carries that evidence field. */
+function hasEvidence(meaning, field) {
+  if (field === 'example') return typeof meaning.example === 'string' && meaning.example !== ''
+  return isRecord(meaning.source)
+}
+
+/** Normalize an array of {pos, zh, example?, source?} meanings (deduplicated, capped). */
 export function normalizeMeanings(raw, options = {}) {
   const limit = Number.isFinite(Number(options.limit)) ? Number(options.limit) : 3
   if (!Array.isArray(raw)) return []
-  return raw
-    .filter((item) => isRecord(item) && typeof item.zh === 'string' && item.zh.trim() !== '')
-    .map((item) => ({ pos: String(item.pos ?? '').trim(), zh: item.zh.trim() }))
-    .slice(0, limit)
+  const meanings = []
+  const seen = new Map()
+  for (const item of raw) {
+    if (!isRecord(item) || typeof item.zh !== 'string' || item.zh.trim() === '') continue
+    const pos = String(item.pos ?? '').trim()
+    const zh = item.zh.trim()
+    const evidence = meaningEvidence(item)
+    const key = meaningKey(pos, zh)
+    const index = seen.get(key)
+    if (index === undefined) {
+      seen.set(key, meanings.length)
+      meanings.push({ pos, zh, ...evidence })
+      continue
+    }
+    // Duplicate (pos case-insensitively, zh): keep the first occurrence and
+    // backfill any evidence only the duplicate carries.
+    const existing = meanings[index]
+    if (!hasEvidence(existing, 'example') && evidence.example !== undefined) existing.example = evidence.example
+    if (!hasEvidence(existing, 'source') && evidence.source !== undefined) existing.source = evidence.source
+  }
+  return meanings.slice(0, limit)
 }
 
 /** Normalize an array of {label, form} word forms (deduplicated, capped). */
@@ -109,7 +154,30 @@ export function normalizeEntry(kind, entry) {
 export function applyVocabPatch(target, patch) {
   if (!isRecord(target) || !isRecord(patch)) return false
   if (typeof patch.ipa === 'string') target.ipa = patch.ipa.trim()
-  if (Array.isArray(patch.meanings)) target.meanings = normalizeMeanings(patch.meanings, { limit: MAX_MEANINGS })
+  if (Array.isArray(patch.meanings)) {
+    const evidence = new Map()
+    for (const meaning of Array.isArray(target.meanings) ? target.meanings : []) {
+      if (!isRecord(meaning) || typeof meaning.zh !== 'string') continue
+      const zh = meaning.zh.trim()
+      if (zh === '') continue
+      const key = meaningKey(String(meaning.pos ?? '').trim(), zh)
+      const kept = evidence.get(key) ?? {}
+      const item = meaningEvidence(meaning)
+      if (kept.example === undefined && item.example !== undefined) kept.example = item.example
+      if (kept.source === undefined && item.source !== undefined) kept.source = item.source
+      evidence.set(key, kept)
+    }
+    const merged = patch.meanings.map((item) => {
+      if (!isRecord(item) || typeof item.zh !== 'string') return item
+      const previous = evidence.get(meaningKey(String(item.pos ?? '').trim(), item.zh.trim()))
+      if (previous === undefined) return item
+      const next = { ...item }
+      if (!hasEvidence(next, 'example') && previous.example !== undefined) next.example = previous.example
+      if (!hasEvidence(next, 'source') && previous.source !== undefined) next.source = previous.source
+      return next
+    })
+    target.meanings = normalizeMeanings(merged, { limit: MAX_MEANINGS })
+  }
   if (typeof patch.sentenceZh === 'string') target.sentenceZh = patch.sentenceZh.trim()
   if (typeof patch.translation === 'string') target.translation = patch.translation.trim()
   if (Array.isArray(patch.family)) target.family = normalizeFamily(patch.family, { limit: MAX_FAMILY })
@@ -130,6 +198,50 @@ export function cleanSource(source) {
   }
 }
 
+function analysisCount(value) {
+  const number = Number(value)
+  return Number.isFinite(number) && number >= 0 ? Math.round(number) : 0
+}
+
+const ISO_DATETIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/
+const ANALYSIS_STATUSES = new Set(['done', 'skipped', 'failed'])
+const MAX_FINGERPRINT = 200
+const MAX_ANALYSIS_ERROR = 300
+
+function analysisAt(value) {
+  if (typeof value === 'string') {
+    const text = value.trim()
+    if (ISO_DATETIME_RE.test(text) && !Number.isNaN(Date.parse(text))) return text
+  }
+  return new Date().toISOString()
+}
+
+/**
+ * Normalize the persisted 多义分析 record (optional field on word entries only;
+ * version stays 1 because the frozen data format only gains optional fields).
+ */
+export function normalizeAnalysis(raw) {
+  if (!isRecord(raw)) return undefined
+  const status = typeof raw.status === 'string' ? raw.status.trim() : ''
+  if (!ANALYSIS_STATUSES.has(status)) return undefined
+  const fingerprint = typeof raw.fingerprint === 'string' ? raw.fingerprint.trim() : ''
+  if (fingerprint === '' || fingerprint.length > MAX_FINGERPRINT) return undefined
+  const analysis = {
+    version: 1,
+    at: analysisAt(raw.at),
+    status,
+    fingerprint,
+    contexts: analysisCount(raw.contexts),
+    transcripts: analysisCount(raw.transcripts),
+    added: status === 'done' ? analysisCount(raw.added) : 0,
+  }
+  if (status === 'failed') {
+    const message = typeof raw.error === 'string' ? raw.error.trim() : ''
+    if (message !== '') analysis.error = message.length > MAX_ANALYSIS_ERROR ? message.slice(0, MAX_ANALYSIS_ERROR) : message
+  }
+  return analysis
+}
+
 /** Render the vocabulary as a readable Markdown document for the agent and the user. */
 export function vocabularyMarkdown(data) {
   const words = Array.isArray(data.words) ? data.words : []
@@ -142,6 +254,11 @@ export function vocabularyMarkdown(data) {
     lines.push(head)
     for (const meaning of entry.meanings ?? []) {
       lines.push(`- ${meaning.pos ? `${meaning.pos} ` : ''}${meaning.zh}`)
+      const example = typeof meaning.example === 'string' ? meaning.example.trim() : ''
+      if (example !== '') {
+        const title = typeof meaning.source?.title === 'string' ? meaning.source.title.trim() : ''
+        lines.push(`  - 例：${example}${title !== '' ? `（${title}）` : ''}`)
+      }
     }
     if (Array.isArray(entry.family) && entry.family.length > 0) {
       lines.push(`- 词形：${entry.family.map((item) => `${item.label ? `${item.label} ` : ''}${item.form}`).join('；')}`)
@@ -156,6 +273,14 @@ export function vocabularyMarkdown(data) {
     if (entry.sentence) lines.push(`- 例句：${entry.sentence}`)
     if (entry.sentenceZh) lines.push(`- 例句翻译：${entry.sentenceZh}`)
     if (entry.source?.title) lines.push(`- 来源：${entry.source.title}${entry.source.speaker ? ` · Speaker ${entry.source.speaker}` : ''}${entry.source.startMs ? ` · ${formatClock(entry.source.startMs)}` : ''}`)
+    if (isRecord(entry.analysis) && entry.analysis.status === 'done') {
+      lines.push(`  - 多义分析：${analysisCount(entry.analysis.contexts)} 处 · ${analysisCount(entry.analysis.transcripts)} 篇文稿`)
+    } else if (isRecord(entry.analysis) && entry.analysis.status === 'skipped') {
+      lines.push('  - 多义分析：没有更多上下文')
+    } else if (isRecord(entry.analysis) && entry.analysis.status === 'failed') {
+      const error = typeof entry.analysis.error === 'string' ? entry.analysis.error.trim() : ''
+      lines.push(`  - 多义分析：失败${error !== '' ? `（${error}）` : ''}`)
+    }
     if (entry.status === 'pending') lines.push('- 状态：待补全')
     lines.push('')
   }
@@ -313,5 +438,25 @@ export function createVocabService(options) {
     })
   }
 
-  return { read, add, update, remove, list, exportMarkdown, enrich, vocabPath, vocabMdPath }
+  /** Persist a 多义分析 result (analysis service) and refresh derived fields. */
+  async function applyAnalysis(root, id, patch) {
+    const entryId = String(id ?? '').trim()
+    if (entryId === '') fail('vocab/invalid-entry', '缺少词条 id')
+    const input = isRecord(patch) ? patch : {}
+    return store.locked(vocabPath(root), async () => {
+      const data = await read(root)
+      const target = data.words.find((item) => item.id === entryId)
+      if (target === undefined) fail('vocab/not-found', '词条不存在')
+      if (target.kind === 'sentence') fail('vocab/invalid-entry', '句子条目没有多义分析')
+      if (Array.isArray(input.meanings)) target.meanings = normalizeMeanings(input.meanings, { limit: MAX_MEANINGS })
+      const analysis = normalizeAnalysis(input.analysis)
+      if (analysis !== undefined) target.analysis = analysis
+      target.status = statusOf(target)
+      target.updatedAt = new Date().toISOString()
+      await writeUnlocked(root, data)
+      return { id: entryId, entry: target }
+    })
+  }
+
+  return { read, add, update, remove, list, exportMarkdown, enrich, applyAnalysis, vocabPath, vocabMdPath }
 }

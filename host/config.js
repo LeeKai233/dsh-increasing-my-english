@@ -56,6 +56,20 @@ export const DEFAULT_CONFIG = deepFreeze({
     maxPdfPages: 120,
     dpi: 100,
   },
+  recall: {
+    newPerDay: 10,
+    dailyLimit: 30,
+    mode: 'mix',
+  },
+  analysis: {
+    enabled: true,
+    idleMinutes: 3,
+    batchWords: 2,
+    maxContexts: 6,
+    maxContextChars: 240,
+    timeoutMs: 30000,
+    retryMinutes: 10,
+  },
   dirs: {
     recordings: 'recordings',
     transcripts: 'transcripts',
@@ -111,6 +125,20 @@ function pickBackend(raw, warnings) {
   if (raw === 'ds' || raw === 'bl' || raw === 'off') return raw
   warnings.push('lookup.backend 只能是 ds / bl / off，已回退默认值')
   return DEFAULT_CONFIG.lookup.backend
+}
+
+function pickRecallMode(raw, warnings) {
+  if (raw === undefined) return DEFAULT_CONFIG.recall.mode
+  if (raw === 'mix' || raw === 'en-zh' || raw === 'zh-en') return raw
+  warnings.push('recall.mode 只能是 mix / en-zh / zh-en，已回退默认值')
+  return DEFAULT_CONFIG.recall.mode
+}
+
+function pickBoolean(raw, fallback, label, warnings) {
+  if (raw === undefined) return fallback
+  if (typeof raw === 'boolean') return raw
+  warnings.push(label + ' 必须是布尔值，已回退默认值')
+  return fallback
 }
 
 function pickNullableString(raw, label, warnings) {
@@ -181,6 +209,12 @@ export function normalizeConfig(raw) {
   const importRaw = isRecord(document.import) ? document.import : {}
   if (document.import !== undefined && !isRecord(document.import)) warnings.push('import 必须是对象，已回退默认值')
 
+  const recallRaw = isRecord(document.recall) ? document.recall : {}
+  if (document.recall !== undefined && !isRecord(document.recall)) warnings.push('recall 必须是对象，已回退默认值')
+
+  const analysisRaw = isRecord(document.analysis) ? document.analysis : {}
+  if (document.analysis !== undefined && !isRecord(document.analysis)) warnings.push('analysis 必须是对象，已回退默认值')
+
   const dirsRaw = isRecord(document.dirs) ? document.dirs : {}
   if (document.dirs !== undefined && !isRecord(document.dirs)) warnings.push('dirs 必须是对象，已回退默认值')
 
@@ -213,6 +247,20 @@ export function normalizeConfig(raw) {
     import: {
       maxPdfPages: pickNumber(importRaw.maxPdfPages, DEFAULT_CONFIG.import.maxPdfPages, 'import.maxPdfPages', warnings, { min: 1, max: 1000, integer: true }),
       dpi: pickNumber(importRaw.dpi, DEFAULT_CONFIG.import.dpi, 'import.dpi', warnings, { min: 50, max: 300, integer: true }),
+    },
+    recall: {
+      newPerDay: pickNumber(recallRaw.newPerDay, DEFAULT_CONFIG.recall.newPerDay, 'recall.newPerDay', warnings, { min: 0, max: 100, integer: true }),
+      dailyLimit: pickNumber(recallRaw.dailyLimit, DEFAULT_CONFIG.recall.dailyLimit, 'recall.dailyLimit', warnings, { min: 1, max: 200, integer: true }),
+      mode: pickRecallMode(recallRaw.mode, warnings),
+    },
+    analysis: {
+      enabled: pickBoolean(analysisRaw.enabled, DEFAULT_CONFIG.analysis.enabled, 'analysis.enabled', warnings),
+      idleMinutes: pickNumber(analysisRaw.idleMinutes, DEFAULT_CONFIG.analysis.idleMinutes, 'analysis.idleMinutes', warnings, { min: 0.5, max: 120 }),
+      batchWords: pickNumber(analysisRaw.batchWords, DEFAULT_CONFIG.analysis.batchWords, 'analysis.batchWords', warnings, { min: 1, max: 20, integer: true }),
+      maxContexts: pickNumber(analysisRaw.maxContexts, DEFAULT_CONFIG.analysis.maxContexts, 'analysis.maxContexts', warnings, { min: 1, max: 12, integer: true }),
+      maxContextChars: pickNumber(analysisRaw.maxContextChars, DEFAULT_CONFIG.analysis.maxContextChars, 'analysis.maxContextChars', warnings, { min: 60, max: 1000, integer: true }),
+      timeoutMs: pickNumber(analysisRaw.timeoutMs, DEFAULT_CONFIG.analysis.timeoutMs, 'analysis.timeoutMs', warnings, { min: 5000, max: 120000, integer: true }),
+      retryMinutes: pickNumber(analysisRaw.retryMinutes, DEFAULT_CONFIG.analysis.retryMinutes, 'analysis.retryMinutes', warnings, { min: 1, max: 1440, integer: true }),
     },
     dirs: {
       recordings: dir('recordings'),

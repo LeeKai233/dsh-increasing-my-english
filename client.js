@@ -75,10 +75,11 @@ window.__ModuleLoader__.load({
     // ═══════════════════════════════════════════════════════════════════
     const zh = {
       'tab.title': '英语精读',
-      'tab.description': '播客转写文稿与生词本',
+      'tab.description': '播客转写、生词本与背记',
       'button.open': '打开英语精读',
       'mode.reader': '文稿',
       'mode.vocab': '生词本',
+      'mode.recall': '背记',
       'common.refresh': '刷新',
       'common.copy': '复制',
       'common.copied': '已复制',
@@ -163,6 +164,86 @@ window.__ModuleLoader__.load({
       'vocab.etymology': '词源：',
       'vocab.enrich': '补全词形/词源',
       'toast.enriched': '已补全词形与词源',
+      'vocab.analyze': '分析多义',
+      'vocab.analyzing': '分析中…',
+      'vocab.analyzeHint': '对比所有文稿里的用法，补全这个词的其它意思',
+      'vocab.analysisDone': '多义分析：{contexts} 处 · {transcripts} 篇文稿',
+      'vocab.analysisSkipped': '多义分析：没有更多上下文',
+      'vocab.analysisFailed': '多义分析失败：{message}',
+      'vocab.senseExample': '语境：',
+      'toast.analyzed': '多义分析完成，新增 {added} 条释义',
+      'toast.analyzeSkipped': '多义分析完成，未发现新的意思',
+      'toast.analyzeFailed': '多义分析失败，请稍后重试',
+      'error.analysisDisabled': '查词后端已关闭，无法分析多义',
+      'recall.loading': '正在准备今日复习…',
+      'recall.failed': '背记加载失败',
+      'recall.retry': '重试',
+      'recall.refresh': '刷新',
+      'recall.progress': '已完成 {done} / {total}',
+      'recall.remaining': '还剩 {n} 个',
+      'recall.due': '待复习 {n}',
+      'recall.newWords': '新词 {n}',
+      'recall.mastered': '已掌握 {n}',
+      'recall.streak': '连续 {n} 天',
+      'recall.mode': '练习方式',
+      'recall.modeMix': '混合',
+      'recall.modeEnZh': '英→中',
+      'recall.modeZhEn': '中→英',
+      'recall.pagePractice': '今日复习',
+      'recall.pageMastery': '掌握情况',
+      'recall.pageTabs': '背记页面',
+      'recall.cardNew': '新词',
+      'recall.cardDue': '复习',
+      'recall.promptEnZh': '写出中文意思',
+      'recall.promptZhEn': '写出英文单词',
+      'recall.placeholderEnZh': '输入中文意思，回车提交',
+      'recall.placeholderZhEn': '输入英文单词，回车提交',
+      'recall.submit': '提交答案',
+      'recall.skip': '不会，直接看答案',
+      'recall.showExample': '显示例句',
+      'recall.hideExample': '隐藏例句',
+      'recall.exampleLabel': '例句',
+      'recall.noExample': '这个词还没有例句。在生词本里补全例句后会出现。',
+      'recall.answer': '你的答案',
+      'recall.correctAnswer': '正确答案',
+      'recall.verdictCorrect': '自动判断：正确',
+      'recall.verdictClose': '自动判断：接近',
+      'recall.verdictWrong': '自动判断：不正确',
+      'recall.verdictHint': '自动判断仅供参考，请按你的真实掌握程度选择。',
+      'recall.gradeAgain': '忘记',
+      'recall.gradeHard': '模糊',
+      'recall.gradeGood': '记得',
+      'recall.gradeEasy': '熟练',
+      'recall.gradeHint': '快捷键 1–4',
+      'recall.doneTitle': '今日复习完成',
+      'recall.doneSummary': '完成 {done} 个 · 答对 {correct} 个',
+      'recall.doneHint': '系统会按掌握程度在合适的日子再安排这些词。',
+      'recall.noWordbook': '生词本还没有可背的单词。先在文稿里划词查词并加入生词本。',
+      'recall.noMeanings': '生词本里的单词还没有中文释义，先补全释义再来背记。',
+      'recall.noRound': '今天没有要复习的单词。',
+      'recall.nextReview': '下次复习：{date}',
+      'recall.masteryTitle': '掌握情况',
+      'recall.tableWord': '单词',
+      'recall.tableMastery': '掌握度',
+      'recall.tableLevel': '等级',
+      'recall.tableNext': '下次复习',
+      'recall.tableActions': '操作',
+      'recall.mastery0': '生疏',
+      'recall.mastery1': '初识',
+      'recall.mastery2': '初记',
+      'recall.mastery3': '熟悉',
+      'recall.mastery4': '掌握',
+      'recall.mastery5': '精通',
+      'recall.level': 'Lv.{level}',
+      'recall.nextToday': '今天',
+      'recall.nextTomorrow': '明天',
+      'recall.nextDate': '{date}',
+      'recall.resetWord': '重置',
+      'recall.resetAll': '重置全部进度',
+      'recall.resetAllConfirm': '确定重置全部背记进度？',
+      'recall.resetYes': '确认重置',
+      'recall.resetNo': '取消',
+      'recall.historyTitle': '最近 {n} 天',
       'popup.word': '单词',
       'popup.sentence': '句子',
       'popup.loading': '查询中…',
@@ -207,6 +288,8 @@ window.__ModuleLoader__.load({
       'error.vocabNotFound': '词条不存在',
       'error.jobNotFound': '找不到这个转写任务',
       'error.jobFailed': '转写任务失败',
+      'error.recallInvalid': '背记数据无效',
+      'error.recallNotFound': '这个词已不在生词本中',
       'env.title': '环境自检',
       'env.check': '重新检测',
       'env.checking': '检测中…',
@@ -234,10 +317,11 @@ window.__ModuleLoader__.load({
 
     const en = {
       'tab.title': 'English practice',
-      'tab.description': 'Podcast transcripts and wordbook',
+      'tab.description': 'Podcast transcripts, wordbook and review',
       'button.open': 'Open English practice',
       'mode.reader': 'Transcript',
       'mode.vocab': 'Wordbook',
+      'mode.recall': 'Review',
       'common.refresh': 'Refresh',
       'common.copy': 'Copy',
       'common.copied': 'Copied',
@@ -322,6 +406,86 @@ window.__ModuleLoader__.load({
       'vocab.etymology': 'Etymology: ',
       'vocab.enrich': 'Fetch forms & etymology',
       'toast.enriched': 'Word forms and etymology added',
+      'vocab.analyze': 'Analyze senses',
+      'vocab.analyzing': 'Analyzing…',
+      'vocab.analyzeHint': 'Compare every document for other meanings of this word',
+      'vocab.analysisDone': 'Senses analyzed: {contexts} contexts · {transcripts} transcripts',
+      'vocab.analysisSkipped': 'Senses analyzed: no other contexts',
+      'vocab.analysisFailed': 'Sense analysis failed: {message}',
+      'vocab.senseExample': 'Context: ',
+      'toast.analyzed': 'Sense analysis finished — {added} new meanings',
+      'toast.analyzeSkipped': 'Sense analysis finished — no new meanings',
+      'toast.analyzeFailed': 'Sense analysis failed — try again shortly',
+      'error.analysisDisabled': 'The lookup backend is off, so senses cannot be analyzed',
+      'recall.loading': 'Preparing today’s review…',
+      'recall.failed': 'Could not load the review',
+      'recall.retry': 'Retry',
+      'recall.refresh': 'Refresh',
+      'recall.progress': '{done} of {total} done',
+      'recall.remaining': '{n} to go',
+      'recall.due': 'Due {n}',
+      'recall.newWords': 'New {n}',
+      'recall.mastered': 'Mastered {n}',
+      'recall.streak': '{n}-day streak',
+      'recall.mode': 'Practice mode',
+      'recall.modeMix': 'Mixed',
+      'recall.modeEnZh': 'EN → ZH',
+      'recall.modeZhEn': 'ZH → EN',
+      'recall.pagePractice': 'Today',
+      'recall.pageMastery': 'Mastery',
+      'recall.pageTabs': 'Review pages',
+      'recall.cardNew': 'New',
+      'recall.cardDue': 'Review',
+      'recall.promptEnZh': 'Write the Chinese meaning',
+      'recall.promptZhEn': 'Write the English word',
+      'recall.placeholderEnZh': 'Type the Chinese meaning, press Enter',
+      'recall.placeholderZhEn': 'Type the English word, press Enter',
+      'recall.submit': 'Submit',
+      'recall.skip': 'Don’t know — show the answer',
+      'recall.showExample': 'Show example',
+      'recall.hideExample': 'Hide example',
+      'recall.exampleLabel': 'Example',
+      'recall.noExample': 'No example sentence for this word yet. It appears once the wordbook entry has one.',
+      'recall.answer': 'Your answer',
+      'recall.correctAnswer': 'Correct answer',
+      'recall.verdictCorrect': 'Auto-check: correct',
+      'recall.verdictClose': 'Auto-check: close',
+      'recall.verdictWrong': 'Auto-check: incorrect',
+      'recall.verdictHint': 'The auto-check is only a guide — grade how well you actually knew it.',
+      'recall.gradeAgain': 'Forgot',
+      'recall.gradeHard': 'Fuzzy',
+      'recall.gradeGood': 'Got it',
+      'recall.gradeEasy': 'Easy',
+      'recall.gradeHint': 'Shortcuts 1–4',
+      'recall.doneTitle': 'Today’s review is done',
+      'recall.doneSummary': '{done} reviewed · {correct} correct',
+      'recall.doneHint': 'These words come back on the days that match how well you know them.',
+      'recall.noWordbook': 'No words to review yet. Select a word in a transcript, look it up, and add it to your wordbook.',
+      'recall.noMeanings': 'The wordbook words do not have Chinese meanings yet. Fill them in, then come back to review.',
+      'recall.noRound': 'Nothing scheduled for today.',
+      'recall.nextReview': 'Next review: {date}',
+      'recall.masteryTitle': 'Mastery',
+      'recall.tableWord': 'Word',
+      'recall.tableMastery': 'Mastery',
+      'recall.tableLevel': 'Level',
+      'recall.tableNext': 'Next',
+      'recall.tableActions': 'Actions',
+      'recall.mastery0': 'Fresh',
+      'recall.mastery1': 'Started',
+      'recall.mastery2': 'Learning',
+      'recall.mastery3': 'Familiar',
+      'recall.mastery4': 'Solid',
+      'recall.mastery5': 'Mastered',
+      'recall.level': 'Lv.{level}',
+      'recall.nextToday': 'Today',
+      'recall.nextTomorrow': 'Tomorrow',
+      'recall.nextDate': '{date}',
+      'recall.resetWord': 'Reset',
+      'recall.resetAll': 'Reset all progress',
+      'recall.resetAllConfirm': 'Reset all review progress?',
+      'recall.resetYes': 'Reset everything',
+      'recall.resetNo': 'Cancel',
+      'recall.historyTitle': 'Last {n} days',
       'popup.word': 'Word',
       'popup.sentence': 'Sentence',
       'popup.loading': 'Looking up…',
@@ -366,6 +530,8 @@ window.__ModuleLoader__.load({
       'error.vocabNotFound': 'Wordbook entry not found',
       'error.jobNotFound': 'Transcription job not found',
       'error.jobFailed': 'The transcription job failed',
+      'error.recallInvalid': 'Invalid review data',
+      'error.recallNotFound': 'This word is no longer in the wordbook',
       'env.title': 'Environment check',
       'env.check': 'Check again',
       'env.checking': 'Checking…',
@@ -465,6 +631,9 @@ window.__ModuleLoader__.load({
       '.egl-example{margin-top:6px;color:var(--dsw-alias-label-secondary);font-size:.92em}',
       '.egl-example mark{background:transparent;color:var(--dsw-alias-brand-primary);font-weight:600}',
       '.egl-source{margin-top:4px;color:var(--dsw-alias-label-secondary);font-size:.85em}',
+      '.egl-sense-example{margin:-2px 0 4px 10px;font-size:11px;color:var(--dsw-alias-label-secondary);line-height:1.4}',
+      '.egl-sense-source{color:var(--dsw-alias-label-secondary);opacity:.9}',
+      '.egl-analysis{margin-top:4px;font-size:11px;color:var(--dsw-alias-label-secondary)}',
       '.egl-chip{margin-left:auto;flex:none;font-size:.85em;padding:1px 6px;border-radius:999px;border:.5px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary)}',
       '.egl-chip.is-pending{border-color:var(--dsw-alias-state-warn-primary);color:var(--dsw-alias-state-warn-primary)}',
       '.egl-card-actions{display:flex;gap:8px;margin-top:auto;padding-top:8px;align-items:center}',
@@ -510,6 +679,81 @@ window.__ModuleLoader__.load({
       '.egl-env-warns{margin:0;padding-left:18px;font-size:11px;color:var(--dsw-alias-state-warn-primary)}',
       '.egl-env-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}',
       '.egl-env-hint{font-size:11px;color:var(--dsw-alias-label-secondary)}',
+      '.egl-recall{display:flex;flex-direction:column;flex:1;min-height:0}',
+      '.egl-recall-head{flex:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 12px;border-bottom:.5px solid var(--dsw-alias-border-l1)}',
+      '.egl-recall-label{flex:none;font-size:11px;color:var(--dsw-alias-label-secondary)}',
+      '.egl-recall-progress{display:flex;align-items:center;gap:8px;margin:0 0 8px}',
+      '.egl-recall-progress-text{flex:none;font-size:11px;color:var(--dsw-alias-label-secondary);font-variant-numeric:tabular-nums}',
+      '.egl-recall-track{flex:1;min-width:60px;height:6px;border-radius:999px;background:var(--dsw-alias-bg-layer-2);overflow:hidden}',
+      '.egl-recall-fill{height:100%;border-radius:999px;background:var(--dsw-alias-brand-primary);transition:width .18s ease}',
+      '.egl-recall-chips{display:flex;flex-wrap:wrap;gap:4px 6px;margin:0 0 10px}',
+      '.egl-recall-chip{font-size:11px;line-height:18px;padding:0 7px;border-radius:999px;border:.5px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);white-space:nowrap}',
+      '.egl-recall-card{border:.5px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-lg);background:var(--dsw-alias-bg-layer-1);padding:14px 14px 12px;margin:0 0 12px}',
+      '.egl-recall-cardhead{display:flex;align-items:center;gap:8px;margin:0 0 10px}',
+      '.egl-recall-cardchip{flex:none;font-size:11px;line-height:17px;padding:0 6px;border-radius:999px;border:.5px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary)}',
+      '.egl-recall-cardchip.is-new{border-color:var(--dsw-alias-brand-primary);color:var(--dsw-alias-brand-primary)}',
+      '.egl-recall-lv{margin-left:auto;flex:none;font-size:11px;color:var(--dsw-alias-label-secondary);font-variant-numeric:tabular-nums}',
+      '.egl-recall-word{font-size:1.85em;font-weight:700;line-height:1.25;overflow-wrap:anywhere}',
+      '.egl-recall-ipa{margin-left:8px;font-size:.95em;color:var(--dsw-alias-label-secondary);font-family:ui-monospace,SFMono-Regular,Consolas,monospace}',
+      '.egl-recall-prompt{margin:0 0 10px}',
+      '.egl-recall-prompt-text{font-size:1.05em;font-weight:600;line-height:1.5;overflow-wrap:anywhere}',
+      '.egl-recall-prompt-sub{margin-top:2px;font-size:11px;color:var(--dsw-alias-label-secondary)}',
+      '.egl-recall-prompt-line{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:2px}',
+      '.egl-recall-prompt-line .egl-recall-prompt-sub{margin-top:0}',
+      '.egl-recall-hintbtn{padding:0;border:0;background:transparent;color:var(--dsw-alias-brand-primary);font:inherit;font-size:11px;cursor:pointer}',
+      '.egl-recall-hintbtn:hover{text-decoration:underline}',
+      '.egl-recall-hintbtn:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color);outline-offset:1px}',
+      '.egl-recall-example{margin:0 0 10px;padding:8px 10px;border-radius:var(--dsw-radius-sm);background:var(--dsw-alias-bg-layer-2)}',
+      '.egl-recall-example-label{font-size:11px;color:var(--dsw-alias-label-secondary);margin-bottom:2px}',
+      '.egl-recall-example-text{line-height:1.6;overflow-wrap:anywhere}',
+      '.egl-recall-input{display:block;width:100%;box-sizing:border-box;height:34px;padding:0 10px;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:var(--dsw-alias-bg-base);color:inherit;font:inherit}',
+      '.egl-recall-input:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color);outline-offset:-1px;border-color:var(--dsw-alias-brand-primary)}',
+      '.egl-recall-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px}',
+      '.egl-recall-answerline{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0 0 8px}',
+      '.egl-recall-answerlabel{flex:none;min-width:64px;font-size:11px;line-height:1.6;color:var(--dsw-alias-label-secondary)}',
+      '.egl-recall-answertext{min-width:0;font-weight:600;overflow-wrap:anywhere}',
+      '.egl-recall-answertext.is-blank{font-weight:400;color:var(--dsw-alias-label-secondary)}',
+      '.egl-recall-correct{margin:0 0 10px;padding:8px 10px;border-radius:var(--dsw-radius-sm);background:var(--dsw-alias-bg-layer-2)}',
+      '.egl-recall-correct .egl-recall-answerlabel{margin-bottom:2px}',
+      '.egl-recall-verdict{margin:0 0 4px;font-size:11px;font-weight:600}',
+      '.egl-recall-verdict.is-correct{color:var(--dsw-alias-state-success-primary)}',
+      '.egl-recall-verdict.is-close{color:var(--dsw-alias-state-warn-primary)}',
+      '.egl-recall-verdict.is-wrong{color:var(--dsw-alias-state-error-primary)}',
+      '.egl-recall-hint{margin:0 0 10px;font-size:11px;line-height:1.6;color:var(--dsw-alias-label-secondary)}',
+      '.egl-recall-grades{display:flex;gap:6px;flex-wrap:wrap}',
+      '.egl-recall-grade{flex:1;min-width:60px;height:30px;padding:0 8px;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font:inherit;cursor:pointer;white-space:nowrap}',
+      '.egl-recall-grade:hover:not(:disabled){background:var(--dsw-alias-bg-layer-2)}',
+      '.egl-recall-grade:disabled{opacity:.55;cursor:default}',
+      '.egl-recall-grade.is-rec{border-color:var(--dsw-alias-brand-primary);color:var(--dsw-alias-brand-primary);font-weight:600}',
+      '.egl-recall-gradekey{margin-left:4px;font-size:10px;color:var(--dsw-alias-label-secondary);font-variant-numeric:tabular-nums}',
+      '.egl-recall-section{display:flex;align-items:baseline;gap:8px;margin:14px 0 6px}',
+      '.egl-recall-section-title{font-size:12px;font-weight:600;color:var(--dsw-alias-label-secondary)}',
+      '.egl-recall-history{display:flex;align-items:flex-end;gap:3px;height:64px;margin:6px 0 2px}',
+      '.egl-recall-histcol{flex:1;min-width:0;height:100%;display:flex;flex-direction:column;justify-content:flex-end}',
+      '.egl-recall-histspace{flex:1;min-height:0;display:flex;align-items:flex-end}',
+      '.egl-recall-histbar{width:100%;display:flex;flex-direction:column;justify-content:flex-end;border-radius:3px;background:var(--dsw-alias-bg-layer-2);overflow:hidden}',
+      '.egl-recall-histdone{width:100%;background:var(--dsw-alias-brand-primary);border-radius:2px 2px 0 0}',
+      '.egl-recall-histlabel{flex:none;text-align:center;font-size:9px;line-height:11px;color:var(--dsw-alias-label-secondary);font-variant-numeric:tabular-nums;overflow:hidden}',
+      '.egl-recall-done{padding:18px 12px 12px;text-align:center}',
+      '.egl-recall-done-title{font-size:1.15em;font-weight:600}',
+      '.egl-recall-done-summary{margin-top:4px;font-variant-numeric:tabular-nums}',
+      '.egl-recall-done-hint{margin-top:4px;font-size:11px;line-height:1.6;color:var(--dsw-alias-label-secondary)}',
+      '.egl-recall-tablewrap{overflow-x:auto;margin:4px 0 0}',
+      '.egl-recall-table{display:flex;flex-direction:column;min-width:344px}',
+      '.egl-recall-tablehead,.egl-recall-tablerow{display:grid;grid-template-columns:minmax(72px,1.6fr) 92px 42px 78px 44px;align-items:center;column-gap:8px;padding:6px 0;text-align:left}',
+      '.egl-recall-tablehead{border-bottom:.5px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);font-size:11px;font-weight:600}',
+      '.egl-recall-tablerow{border-bottom:.5px solid var(--dsw-alias-border-l1)}',
+      '.egl-recall-tablerow:last-child{border-bottom:0}',
+      '.egl-recall-cell{min-width:0;text-align:left}',
+      '.egl-recall-cell-word{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+      '.egl-recall-cell-lv,.egl-recall-cell-next{font-size:11px;color:var(--dsw-alias-label-secondary);white-space:nowrap;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis}',
+      '.egl-recall-bar{display:inline-flex;align-items:center;gap:2px;vertical-align:middle}',
+      '.egl-recall-barseg{width:13px;height:6px;border-radius:2px;background:var(--dsw-alias-border-l2)}',
+      '.egl-recall-barseg.is-on{background:var(--dsw-alias-brand-primary)}',
+      '.egl-recall-reset{flex:none;padding:0;border:0;background:transparent;color:var(--dsw-alias-brand-primary);font:inherit;font-size:11px;cursor:pointer}',
+      '.egl-recall-reset:disabled{opacity:.55;color:var(--dsw-alias-label-secondary);cursor:default}',
+      '.egl-recall-resetbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0 0;padding-top:10px;border-top:.5px solid var(--dsw-alias-border-l1)}',
+      '.egl-recall-resetbar-text{flex:1;min-width:0;font-size:11px;color:var(--dsw-alias-label-secondary)}',
     ].join('')
 
     const HEADER_CSS = [
@@ -524,10 +768,14 @@ window.__ModuleLoader__.load({
     // 符号表：
     //   fmtClock / errorMessage / parseLoose / classify / sentenceAround / speakerName
     //   readFontSize / saveFontSize / readPdfZoom / savePdfZoom — localStorage 偏好
+    //   RECALL_MODE_STORAGE_KEY / RECALL_MODES / RECALL_GRADES / readRecallMode / saveRecallMode — 背记练习方式偏好与评分档位
+    //   normalizeEnAnswer / normalizeZhAnswer / levenshtein / lcsLength / judgeAnswer — 背记答案自动判定（客户端，不落后端）
+    //   shiftDateString / recallNextLabel — 背记日期展示（最近 14 天柱状图、「明天」标签）
+    //   recallExampleOf / maskExampleTerms — 背记「显示例句」提示（取含目标词的句子、中→英时把词挖空）
     //   fileResourceAddress — 工作区文件 → dsh-resource:// 地址
     //   hashString / listSignature — 轮询数据签名（只在变化时 setState）
     //   copyText — 剪贴板写入（唯一浏览器副作用小工具）
-    //   isEditableNode / isEditableFocus / isEditableEvent — 输入框焦点守卫
+    //   isEditableNode / isEditableFocus / isEditableEvent / isInteractiveTarget — 输入框与可交互控件守卫
     //   closestDataElement / selectionLookupPayload — 选区解析（含跨行/跨段）
     //   envHasProblems — 环境自检是否需要展开提示
     //   highlight / escapeRegExp / knownWordPattern / renderKnownText / isKnownWord — 已收录词下划线
@@ -583,6 +831,190 @@ window.__ModuleLoader__.load({
       } catch {
         // a storage failure only loses the preference
       }
+    }
+
+    // ── 背记（recall）────────────────────────────────────────────────
+    // 练习方式偏好只存浏览器本地；RECALL_GRADES 的顺序 = 评分按钮顺序 = 快捷键 1–4。
+    // 自动判定是纯前端启发式：只决定「推荐档位」，最终以用户自评四档为准。
+    const RECALL_MODE_STORAGE_KEY = 'english-practice:recall-mode'
+    const RECALL_MODES = ['mix', 'en-zh', 'zh-en']
+    const RECALL_GRADES = ['again', 'hard', 'good', 'easy']
+
+    function readRecallMode() {
+      try {
+        const value = String(window.localStorage.getItem(RECALL_MODE_STORAGE_KEY) ?? '')
+        return RECALL_MODES.includes(value) ? value : null
+      } catch {
+        return null
+      }
+    }
+
+    function saveRecallMode(value) {
+      if (!RECALL_MODES.includes(value)) return
+      try {
+        window.localStorage.setItem(RECALL_MODE_STORAGE_KEY, value)
+      } catch {
+        // a storage failure only loses the preference
+      }
+    }
+
+    /** 英→中/中→英的英文答案归一化：trim → 小写 → 去掉开头的 to / 冠词 → 只留字母数字与连字符。 */
+    function normalizeEnAnswer(text) {
+      let value = String(text ?? '').trim().toLowerCase()
+      value = value.replace(/^to\s+/, '').replace(/^(?:a|an|the)\s+/, '')
+      return value.replace(/[^a-z0-9-]/g, '')
+    }
+
+    /** 中文答案归一化：去掉所有空白与中英文标点。 */
+    function normalizeZhAnswer(text) {
+      return String(text ?? '')
+        .replace(/\s+/g, '')
+        .replace(/[，。、；：！？,.!?;:'"“”‘’（）()【】\[\]{}<>《》…—–\-~·`\/]/g, '')
+    }
+
+    /** 短字符串编辑距离（单词一般 < 20 字符，O(n*m) 足够）。 */
+    function levenshtein(a, b) {
+      const left = String(a ?? '')
+      const right = String(b ?? '')
+      if (left === right) return 0
+      if (left === '' || right === '') return left.length + right.length
+      let previous = []
+      for (let index = 0; index <= right.length; index += 1) previous.push(index)
+      for (let i = 1; i <= left.length; i += 1) {
+        const current = [i]
+        for (let j = 1; j <= right.length; j += 1) {
+          const cost = left[i - 1] === right[j - 1] ? 0 : 1
+          current.push(Math.min(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + cost))
+        }
+        previous = current
+      }
+      return previous[right.length]
+    }
+
+    /** 最长公共子序列长度（中文释义「接近」判定用）。 */
+    function lcsLength(a, b) {
+      const left = String(a ?? '')
+      const right = String(b ?? '')
+      if (left === '' || right === '') return 0
+      let previous = new Array(right.length + 1).fill(0)
+      for (let i = 1; i <= left.length; i += 1) {
+        const current = new Array(right.length + 1).fill(0)
+        for (let j = 1; j <= right.length; j += 1) {
+          current[j] = left[i - 1] === right[j - 1]
+            ? previous[j - 1] + 1
+            : Math.max(previous[j], current[j - 1])
+        }
+        previous = current
+      }
+      return previous[right.length]
+    }
+
+    const RECALL_VERDICT_WRONG = Object.freeze({ verdict: 'wrong', recommended: 'again' })
+    const RECALL_VERDICT_CLOSE = Object.freeze({ verdict: 'close', recommended: 'hard' })
+    const RECALL_VERDICT_CORRECT = Object.freeze({ verdict: 'correct', recommended: 'good' })
+
+    /**
+     * 背记自动判定（纯函数，不落后端）：
+     * - 空答案 → wrong / again；
+     * - 中→英：与 word / family 词形规范化后比较，相等 → correct；编辑距离 ≤ 阈值 → close；
+     * - 英→中：释义（含按「；，、/」拆出的子片段）相等/互相包含 → correct；LCS 相似度 ≥ 0.6 → close。
+     */
+    function judgeAnswer(mode, answer, item) {
+      const raw = String(answer ?? '').trim()
+      if (raw === '') return RECALL_VERDICT_WRONG
+      if (mode === 'zh-en') {
+        const normalized = normalizeEnAnswer(raw)
+        if (normalized === '') return RECALL_VERDICT_WRONG
+        const word = normalizeEnAnswer(item?.word)
+        const forms = (Array.isArray(item?.family) ? item.family : [])
+          .map((entry) => normalizeEnAnswer(entry?.form))
+          .filter((value) => value !== '')
+        if (normalized === word || forms.includes(normalized)) return RECALL_VERDICT_CORRECT
+        let distance = word === '' ? Infinity : levenshtein(normalized, word)
+        for (const form of forms) distance = Math.min(distance, levenshtein(normalized, form))
+        return distance <= (word.length >= 6 ? 2 : 1) ? RECALL_VERDICT_CLOSE : RECALL_VERDICT_WRONG
+      }
+      const normalized = normalizeZhAnswer(raw)
+      if (normalized === '') return RECALL_VERDICT_WRONG
+      const candidates = []
+      for (const meaning of Array.isArray(item?.meanings) ? item.meanings : []) {
+        const zh = String(meaning?.zh ?? '')
+        const whole = normalizeZhAnswer(zh)
+        if (whole !== '') candidates.push(whole)
+        for (const part of zh.split(/[；;，,、/]/)) {
+          const fragment = normalizeZhAnswer(part)
+          if (fragment !== '') candidates.push(fragment)
+        }
+      }
+      if (candidates.includes(normalized)) return RECALL_VERDICT_CORRECT
+      for (const candidate of candidates) {
+        if (normalized.length >= 2 && candidate.includes(normalized)) return RECALL_VERDICT_CORRECT
+        if (candidate.length >= 2 && normalized.includes(candidate)) return RECALL_VERDICT_CORRECT
+      }
+      let best = 0
+      for (const candidate of candidates) {
+        const denominator = Math.max(1, Math.min(normalized.length, candidate.length))
+        best = Math.max(best, lcsLength(normalized, candidate) / denominator)
+      }
+      return best >= 0.6 ? RECALL_VERDICT_CLOSE : RECALL_VERDICT_WRONG
+    }
+
+    /** YYYY-MM-DD 加减天数（只用于柱状图日期序列与「明天」标签，按 UTC 计算避免时区漂移）。 */
+    function shiftDateString(date, delta) {
+      const matched = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(date ?? ''))
+      if (matched === null) return ''
+      const base = Date.UTC(Number(matched[1]), Number(matched[2]) - 1, Number(matched[3]))
+      const shifted = new Date(base + Number(delta) * 86400000)
+      return shifted.getUTCFullYear() + '-' + String(shifted.getUTCMonth() + 1).padStart(2, '0') + '-' + String(shifted.getUTCDate()).padStart(2, '0')
+    }
+
+    /** nextAt 的展示文案：今天 / 明天 / 具体日期；缺失或无效返回 '-'。 */
+    function recallNextLabel(t, nextAt, today) {
+      if (typeof nextAt !== 'string' || nextAt === '') return '-'
+      if (today !== '' && nextAt <= today) return t('recall.nextToday')
+      if (today !== '' && nextAt === shiftDateString(today, 1)) return t('recall.nextTomorrow')
+      return t('recall.nextDate', { date: nextAt })
+    }
+
+    /**
+     * 取生词本例句里包含目标词的那一句（例句可能是整段，过长时围绕命中位置截断并加省略号）。
+     * 没有任何命中时退回整段（超长截断），供「显示例句」提示使用。
+     */
+    function recallExampleOf(item) {
+      const sentence = String(item?.sentence ?? '').trim()
+      if (sentence === '') return ''
+      const terms = [item?.word, ...(Array.isArray(item?.family) ? item.family.map((entry) => entry?.form) : [])]
+        .filter((term) => typeof term === 'string' && term.trim() !== '')
+        .map((term) => term.trim())
+      let hit = -1
+      for (const term of terms) {
+        const index = sentence.search(new RegExp('\\b' + escapeRegExp(term) + '\\b', 'i'))
+        if (index >= 0 && (hit < 0 || index < hit)) hit = index
+      }
+      if (hit < 0) return sentence.length > 220 ? sentence.slice(0, 220).trimEnd() + '…' : sentence
+      const head = sentence.slice(0, hit)
+      const breakIndex = Math.max(head.lastIndexOf('. '), head.lastIndexOf('! '), head.lastIndexOf('? '), head.lastIndexOf('\n'))
+      const start = Math.max(0, Math.max(hit - 140, breakIndex >= 0 ? breakIndex + 2 : 0))
+      const tail = sentence.slice(hit)
+      const endMatch = /[.!?](?=\s|$)/.exec(tail)
+      const end = Math.min(sentence.length, endMatch !== null ? hit + endMatch.index + 1 : hit + 180)
+      let result = sentence.slice(start, end).trim()
+      if (start > 0) result = '…' + result
+      if (end < sentence.length) result = result + '…'
+      return result
+    }
+
+    /** 把例句里的目标词（含词形）替换成等长下划线；中→英模式下用它做「显示例句」提示。 */
+    function maskExampleTerms(text, item) {
+      let result = String(text ?? '')
+      const terms = [item?.word, ...(Array.isArray(item?.family) ? item.family.map((entry) => entry?.form) : [])]
+      for (const term of terms) {
+        const value = typeof term === 'string' ? term.trim() : ''
+        if (value === '') continue
+        const blank = '_'.repeat(Math.min(24, Math.max(3, value.length)))
+        result = result.replace(new RegExp('\\b' + escapeRegExp(value) + '\\b', 'gi'), blank)
+      }
+      return result
     }
 
     function parseLoose(text) {
@@ -700,6 +1132,12 @@ window.__ModuleLoader__.load({
     function isEditableEvent(event) {
       if (isEditableNode(event && event.target)) return true
       return isEditableFocus()
+    }
+
+    /** True when a keyboard target is a clickable control whose native activation must win. */
+    function isInteractiveTarget(target) {
+      if (!target || typeof target.closest !== 'function') return false
+      return target.closest('button, a, input, select, textarea, [role="button"], [role="tab"], summary') !== null
     }
 
     function closestDataElement(node, attribute) {
@@ -1069,7 +1507,7 @@ window.__ModuleLoader__.load({
     //   ERROR_MESSAGE_KEYS — AGENTS.md 错误码 → i18n 键；查不到才回退宿主 message
     //   HTTP_STATUS_CODES — 响应体缺失时按 HTTP 状态码兜底
     //   API_TIMEOUT_MS / API_DEFAULT_TIMEOUT_MS — 每个 action 的超时预算；必须与 Host 网关逐 action 对齐
-    //       （import 240s = Host 侧 pdftoppm 180s + pdftotext 120s 的最坏组合；两边同步改，避免漂移）
+    //       （import 300s = Host 侧 pdftoppm 180s + pdftotext 120s 的最坏组合；两边同步改，避免漂移）
     //   API_DEDUPE_ACTIONS — 只读 action 允许 in-flight 去重
     //   linkSignal / raceSignal — AbortSignal 组合原语（调用方取消不杀共享请求）
     //   createApi(ctx, sessionId, t, options) — 单会话网关：call / readAll / readBytes / 各 action 方法
@@ -1084,6 +1522,7 @@ window.__ModuleLoader__.load({
       lookup: 25000,
       transcribe: 30000,
       'transcripts.import': 300000,
+      'vocab.analyze': 180000,
       'env.check': 15000,
     }
     const API_DEDUPE_ACTIONS = new Set([
@@ -1094,6 +1533,7 @@ window.__ModuleLoader__.load({
       'job',
       'lookup',
       'env.check',
+      'recall.overview',
     ])
     const ERROR_MESSAGE_KEYS = {
       'http/method': 'error.httpMethod',
@@ -1124,8 +1564,11 @@ window.__ModuleLoader__.load({
       'lookup/failed': 'error.lookup',
       'vocab/invalid-entry': 'error.vocabInvalidEntry',
       'vocab/not-found': 'error.vocabNotFound',
+      'analysis/disabled': 'error.analysisDisabled',
       'job/not-found': 'error.jobNotFound',
       'job/failed': 'error.jobFailed',
+      'recall/invalid': 'error.recallInvalid',
+      'recall/not-found': 'error.recallNotFound',
     }
     const HTTP_STATUS_CODES = {
       403: 'http/forbidden',
@@ -1395,9 +1838,13 @@ window.__ModuleLoader__.load({
         add: (payload, signal) => call('vocab.add', payload, { signal, dedupe: false }),
         remove: (ids, signal) => call('vocab.remove', { ids }, { signal, dedupe: false }),
         enrich: (id, signal) => call('vocab.enrich', { id }, { signal, dedupe: false }),
+        analyze: (id, signal) => call('vocab.analyze', id === undefined || id === null || id === '' ? {} : { id }, { signal, dedupe: false }),
         transcribe: (payload, signal) => call('transcribe', payload, { signal, dedupe: false }),
         job: (id, signal) => call('job', { id }, { signal }),
         envCheck: (signal) => call('env.check', {}, { signal }),
+        recallOverview: (signal) => call('recall.overview', {}, { signal }),
+        recallGrade: (payload, signal) => call('recall.grade', payload, { signal, dedupe: false }),
+        recallReset: (payload, signal) => call('recall.reset', payload, { signal, dedupe: false }),
 
         pickDirectory: () => ctx.uiWorkspace.pickDirectory(),
         openFile: (path) => ctx.sidebarRight.openResource(fileResourceAddress(sessionId, path)),
@@ -1581,7 +2028,7 @@ window.__ModuleLoader__.load({
 
     /** One wordbook entry. Memoised so a single add/enrich keeps the other cards untouched. */
     const VocabCard = React.memo(function VocabCard(props) {
-      const { t, entry, detail, onDelete, onEnrich, enriching } = props
+      const { t, entry, detail, onDelete, onEnrich, enriching, onAnalyze, analyzing } = props
       const isWord = entry.kind !== 'sentence'
       const pending = entry.status === 'pending'
       const full = detail !== 'simple'
@@ -1598,10 +2045,30 @@ window.__ModuleLoader__.load({
         ),
         isWord
           ? (Array.isArray(entry.meanings) && entry.meanings.length > 0
-              ? entry.meanings.map((meaning, index) => h('div', { key: index, className: 'egl-meaning' },
-                  h('span', { className: 'egl-pos' }, meaning.pos ?? ''),
-                  h('span', null, meaning.zh ?? '')
-                ))
+              ? entry.meanings.map((meaning, index) => {
+                  if (!meaning || typeof meaning !== 'object') return null
+                  const example = typeof meaning.example === 'string' ? meaning.example.trim() : ''
+                  const source = meaning.source && typeof meaning.source === 'object' ? meaning.source : undefined
+                  const sourceTitle = source && typeof source.title === 'string' ? source.title.trim() : ''
+                  const sourceLabel = sourceTitle === ''
+                    ? ''
+                    : t('vocab.source', {
+                        title: sourceTitle,
+                        speaker: source.speaker ?? '-',
+                        time: fmtClock(source.startMs ?? 0),
+                      })
+                  return h(React.Fragment, { key: index },
+                    h('div', { className: 'egl-meaning' },
+                      h('span', { className: 'egl-pos' }, meaning.pos ?? ''),
+                      h('span', null, meaning.zh ?? '')
+                    ),
+                    example !== '' && full
+                      ? h('div', { className: 'egl-sense-example', title: sourceLabel || undefined },
+                          t('vocab.senseExample'), example,
+                          sourceLabel !== '' ? h('span', { className: 'egl-sense-source' }, ' · ' + sourceLabel) : null)
+                      : null
+                  )
+                })
               : h('div', { className: 'egl-muted' }, t('vocab.pending')))
           : (entry.translation ? h('div', { className: 'egl-meaning' }, entry.translation) : h('div', { className: 'egl-muted' }, t('vocab.pending'))),
         family.length > 0
@@ -1635,9 +2102,23 @@ window.__ModuleLoader__.load({
               time: fmtClock(entry.source.startMs ?? 0),
             }))
           : null,
+        isWord && entry.analysis && typeof entry.analysis === 'object'
+          ? h('div', { className: 'egl-analysis' },
+              entry.analysis.status === 'failed'
+                ? t('vocab.analysisFailed', { message: entry.analysis.error ?? '' })
+                : entry.analysis.status === 'skipped'
+                  ? t('vocab.analysisSkipped')
+                  : t('vocab.analysisDone', {
+                      contexts: String(entry.analysis.contexts ?? 0),
+                      transcripts: String(entry.analysis.transcripts ?? 0),
+                    }))
+          : null,
         h('div', { className: 'egl-card-actions' },
           canEnrich
             ? h('button', { type: 'button', className: 'egl-link', disabled: enriching, onClick: () => onEnrich(entry) }, t('vocab.enrich'))
+            : null,
+          isWord
+            ? h('button', { type: 'button', className: 'egl-link', disabled: analyzing, title: t('vocab.analyzeHint'), onClick: () => onAnalyze(entry) }, analyzing ? t('vocab.analyzing') : t('vocab.analyze'))
             : null,
           h('button', { type: 'button', className: 'egl-link', onClick: () => onDelete(entry) }, t('vocab.delete'))
         )
@@ -1975,7 +2456,7 @@ window.__ModuleLoader__.load({
 
 
     // ═══════════════════════════════════════════════════════════════════
-    // §7 视图（转写面板、任务条、文稿、PDF、生词本、环境自检卡）
+    // §7 视图（转写面板、任务条、文稿、PDF、生词本、背记、环境自检卡）
     // 符号表：
     //   TranscribePanel — 录音选择 + 路径扫描 + 模型/说话人数
     //   JobBar — 转写任务状态条（失败可重试）
@@ -1983,6 +2464,9 @@ window.__ModuleLoader__.load({
     //   PdfView — PDF 页容器（页面本身懒加载）
     //   VocabView — 生词本（筛选 / 搜索 / 排序 / 详情）
     //   EnvCommand / EnvCard — 「环境自检」卡：bl / Poppler / 工作区状态 + 可复制命令，可折叠
+    //   RecallCard / RecallProgress / RecallHistory / RecallView — 背记练习页
+    //       （作答两阶段 → 自动判定 + 自评四档；完成态、最近 14 天柱状图）
+    //   RecallMasteryPage — 背记「掌握情况」独立页（表格：单词 / 掌握度 / 等级 / 下次复习 / 操作，各列左对齐）
     // 依赖方向：本区引用 §0/§3/§5，不引用 §8/§9
     // ═══════════════════════════════════════════════════════════════════
     function TranscribePanel(props) {
@@ -2144,7 +2628,7 @@ window.__ModuleLoader__.load({
       const {
         t, words, filtered, pending, filter, onFilter, query, onQuery, sortMode, onSort,
         transcriptFilter, onTranscriptFilter, transcriptOptions, cardDetail, onCardDetail,
-        onCopyPrompt, onDelete, onEnrich, enriching, font,
+        onCopyPrompt, onDelete, onEnrich, enriching, onAnalyze, analyzing, font,
       } = props
       return h('div', { className: 'egl-vocab' },
         h('div', { className: 'egl-vocab-head' },
@@ -2212,6 +2696,8 @@ window.__ModuleLoader__.load({
                     onDelete,
                     onEnrich,
                     enriching,
+                    onAnalyze,
+                    analyzing,
                   }))
                 )
         )
@@ -2366,15 +2852,511 @@ window.__ModuleLoader__.load({
     }
 
 
+    // ── 背记（recall）视图 ─────────────────────────────────────────
+    const RECALL_GRADE_LABEL_KEYS = Object.freeze({
+      again: 'recall.gradeAgain',
+      hard: 'recall.gradeHard',
+      good: 'recall.gradeGood',
+      easy: 'recall.gradeEasy',
+    })
+
+    const RECALL_VERDICT_LABEL_KEYS = Object.freeze({
+      correct: 'recall.verdictCorrect',
+      close: 'recall.verdictClose',
+      wrong: 'recall.verdictWrong',
+    })
+
+    /**
+     * 单题作答卡：answer（输入）→ revealed（看答案 + 自评）两阶段。
+     * 每换一题由父组件用 key 重挂载，内部状态自然重置；revealed 阶段监听 1–4 / Enter 自评。
+     */
+    function RecallCard({ t, item, mode, grading, onGrade }) {
+      const [phase, setPhase] = useState('answer')
+      const [answer, setAnswer] = useState('')
+      const [verdict, setVerdict] = useState('wrong')
+      const [recommended, setRecommended] = useState('again')
+      const [showExample, setShowExample] = useState(false)
+      const inputRef = useRef(null)
+      const enZh = mode === 'en-zh'
+
+      useEffect(() => {
+        if (phase !== 'answer') return
+        const element = inputRef.current
+        if (element) element.focus()
+      }, [phase])
+
+      const submit = useCallback((value) => {
+        const outcome = judgeAnswer(mode, value, item)
+        setVerdict(outcome.verdict)
+        setRecommended(outcome.recommended)
+        setPhase('revealed')
+      }, [mode, item])
+
+      const grade = useCallback((value) => {
+        if (grading) return
+        onGrade(item.entryId, value, mode)
+      }, [grading, item.entryId, mode, onGrade])
+
+      useEffect(() => {
+        if (phase !== 'revealed') return undefined
+        const onKeyDown = (event) => {
+          if (event.isComposing === true || event.repeat === true) return
+          if (event.ctrlKey || event.metaKey || event.altKey) return
+          if (isEditableEvent(event)) return
+          // Enter on a focused button/tab must stay native (grade that button,
+          // toggle the example, switch the page); only blank-area Enter takes the hint.
+          if (event.key === 'Enter' && isInteractiveTarget(event.target)) return
+          if (event.key === 'Enter') {
+            event.preventDefault()
+            grade(recommended)
+            return
+          }
+          const index = ['1', '2', '3', '4'].indexOf(event.key)
+          if (index >= 0) {
+            event.preventDefault()
+            grade(RECALL_GRADES[index])
+          }
+        }
+        window.addEventListener('keydown', onKeyDown)
+        return () => window.removeEventListener('keydown', onKeyDown)
+      }, [phase, grade, recommended])
+
+      const meanings = Array.isArray(item.meanings) ? item.meanings : []
+      const family = Array.isArray(item.family) ? item.family : []
+      const mastery = Math.min(5, Math.max(0, Number(item.mastery) || 0))
+      const answered = String(answer ?? '').trim()
+
+      const header = h('div', { className: 'egl-recall-cardhead' },
+        h('span', { className: 'egl-recall-cardchip' + (item.status === 'new' ? ' is-new' : '') },
+          item.status === 'new' ? t('recall.cardNew') : t('recall.cardDue')),
+        h('span', { className: 'egl-recall-lv' }, t('recall.level', { level: String(mastery) }))
+      )
+
+      const exampleSentence = recallExampleOf(item)
+      const promptLine = h('div', { className: 'egl-recall-prompt-line' },
+        h('span', { className: 'egl-recall-prompt-sub' }, enZh ? t('recall.promptEnZh') : t('recall.promptZhEn')),
+        phase === 'answer'
+          ? h('button', {
+              type: 'button',
+              className: 'egl-recall-hintbtn',
+              'aria-expanded': showExample ? 'true' : 'false',
+              onClick: () => {
+                setShowExample((value) => !value)
+                if (inputRef.current) inputRef.current.focus()
+              },
+            }, showExample ? t('recall.hideExample') : t('recall.showExample'))
+          : null
+      )
+      const exampleHint = showExample
+        ? h('div', { className: 'egl-recall-example' },
+            h('div', { className: 'egl-recall-example-label' }, t('recall.exampleLabel')),
+            exampleSentence !== ''
+              ? h('div', { className: 'egl-recall-example-text' }, enZh ? exampleSentence : maskExampleTerms(exampleSentence, item))
+              : h('div', { className: 'egl-recall-example-text egl-muted' }, t('recall.noExample'))
+          )
+        : null
+
+      const prompt = enZh
+        ? h('div', { className: 'egl-recall-prompt' },
+            h('div', null,
+              h('span', { className: 'egl-recall-word' }, String(item.word ?? '')),
+              item.ipa ? h('span', { className: 'egl-recall-ipa' }, String(item.ipa)) : null
+            ),
+            promptLine
+          )
+        : h('div', { className: 'egl-recall-prompt' },
+            meanings.length > 0
+              ? meanings.map((meaning, index) => h('div', { key: String(index), className: 'egl-recall-prompt-text' },
+                  meaning.pos ? h('span', { className: 'egl-pos' }, String(meaning.pos)) : null,
+                  h('span', null, String(meaning.zh ?? ''))
+                ))
+              : h('div', { className: 'egl-recall-prompt-text egl-muted' }, '—'),
+            promptLine
+          )
+
+      const answerPhase = h('div', null,
+        exampleHint,
+        h('input', {
+          className: 'egl-recall-input',
+          ref: inputRef,
+          value: answer,
+          placeholder: enZh ? t('recall.placeholderEnZh') : t('recall.placeholderZhEn'),
+          'aria-label': enZh ? t('recall.promptEnZh') : t('recall.promptZhEn'),
+          autoComplete: 'off',
+          onChange: (event) => setAnswer(event.target.value),
+          onKeyDown: (event) => {
+            if (event.key !== 'Enter') return
+            if (event.nativeEvent?.isComposing === true || event.isComposing === true) return
+            event.preventDefault()
+            submit(answer)
+          },
+        }),
+        h('div', { className: 'egl-recall-actions' },
+          h('button', { type: 'button', className: 'egl-btn', onClick: () => submit(answer) }, t('recall.submit')),
+          h('button', {
+            type: 'button',
+            className: 'egl-link',
+            onClick: () => {
+              setAnswer('')
+              submit('')
+            },
+          }, t('recall.skip'))
+        )
+      )
+
+      const correct = enZh
+        ? h('div', null,
+            meanings.length > 0
+              ? meanings.map((meaning, index) => h('div', { key: String(index), className: 'egl-meaning' },
+                  h('span', { className: 'egl-pos' }, String(meaning.pos ?? '')),
+                  h('span', null, String(meaning.zh ?? ''))
+                ))
+              : h('div', { className: 'egl-muted' }, '—'),
+            exampleSentence !== '' ? h('div', { className: 'egl-example' }, renderRichText(exampleSentence, { word: item.word })) : null,
+            item.sentenceZh ? h('div', { className: 'egl-example' }, String(item.sentenceZh)) : null
+          )
+        : h('div', null,
+            h('div', null,
+              h('span', { className: 'egl-word' }, String(item.word ?? '')),
+              item.ipa ? h('span', { className: 'egl-ipa', style: { marginLeft: 6 } }, String(item.ipa)) : null
+            ),
+            family.length > 0
+              ? h('div', { className: 'egl-family' }, family.map((entry, index) => h('span', { key: String(index), className: 'egl-form' },
+                  String(entry.label ? entry.label + ' ' + entry.form : entry.form)
+                )))
+              : null,
+            exampleSentence !== '' ? h('div', { className: 'egl-example' }, renderRichText(exampleSentence, { word: item.word })) : null,
+            item.sentenceZh ? h('div', { className: 'egl-example' }, String(item.sentenceZh)) : null
+          )
+
+      const reveal = h('div', null,
+        h('div', { className: 'egl-recall-answerline' },
+          h('span', { className: 'egl-recall-answerlabel' }, t('recall.answer')),
+          answered === ''
+            ? h('span', { className: 'egl-recall-answertext is-blank' }, '—')
+            : h('span', { className: 'egl-recall-answertext' }, answered)
+        ),
+        h('div', { className: 'egl-recall-correct' },
+          h('div', { className: 'egl-recall-answerlabel' }, t('recall.correctAnswer')),
+          correct
+        ),
+        h('div', { className: 'egl-recall-verdict is-' + verdict }, t(RECALL_VERDICT_LABEL_KEYS[verdict] ?? RECALL_VERDICT_LABEL_KEYS.wrong)),
+        h('div', { className: 'egl-recall-hint' }, t('recall.verdictHint')),
+        h('div', { className: 'egl-recall-grades' }, RECALL_GRADES.map((value, index) => {
+          const label = t(RECALL_GRADE_LABEL_KEYS[value])
+          return h('button', {
+            key: value,
+            type: 'button',
+            className: 'egl-recall-grade' + (recommended === value ? ' is-rec' : ''),
+            'aria-pressed': recommended === value,
+            disabled: grading,
+            title: label,
+            onClick: () => grade(value),
+          }, label, h('span', { className: 'egl-recall-gradekey' }, String(index + 1)))
+        })),
+        h('div', { className: 'egl-recall-hint', style: { marginTop: 6, marginBottom: 0 } }, t('recall.gradeHint'))
+      )
+
+      return h('div', { className: 'egl-recall-card' },
+        header,
+        prompt,
+        phase === 'answer' ? answerPhase : reveal
+      )
+    }
+
+    /** 进度条 + 今日统计 chips（文字表达进度，进度条只是视觉补充）。 */
+    function RecallProgress({ t, overview }) {
+      const summary = overview?.summary && typeof overview.summary === 'object' ? overview.summary : {}
+      const total = Math.max(0, Math.floor(Number(summary.roundTotal) || 0))
+      const done = Math.min(total, Math.max(0, Math.floor(Number(summary.roundDone) || 0)))
+      const percent = total > 0 ? Math.round((done / total) * 100) : 0
+      const progressText = t('recall.progress', { done: String(done), total: String(total) })
+      const chips = [
+        done < total ? t('recall.remaining', { n: String(total - done) }) : '',
+        Number(summary.due) > 0 ? t('recall.due', { n: String(Number(summary.due)) }) : '',
+        Number(summary.new) > 0 ? t('recall.newWords', { n: String(Number(summary.new)) }) : '',
+        Number(summary.mastered) > 0 ? t('recall.mastered', { n: String(Number(summary.mastered)) }) : '',
+        Number(summary.streakDays) > 0 ? t('recall.streak', { n: String(Number(summary.streakDays)) }) : '',
+      ].filter((text) => text !== '')
+      return h('div', null,
+        h('div', { className: 'egl-recall-progress' },
+          h('span', { className: 'egl-recall-progress-text' }, progressText),
+          h('div', {
+            className: 'egl-recall-track',
+            role: 'progressbar',
+            'aria-valuemin': 0,
+            'aria-valuemax': total,
+            'aria-valuenow': done,
+            'aria-label': progressText,
+          }, h('div', { className: 'egl-recall-fill', style: { width: percent + '%' } }))
+        ),
+        chips.length > 0
+          ? h('div', { className: 'egl-recall-chips' }, chips.map((text, index) => h('span', { key: String(index), className: 'egl-recall-chip' }, text)))
+          : null
+      )
+    }
+
+    /** 最近 14 天小柱状图：外层灰柱 = 当日题量，内层品牌色 = 当日完成量（无图表库、无 SVG 依赖）。 */
+    function RecallHistory({ t, overview }) {
+      const today = typeof overview?.date === 'string' ? overview.date : ''
+      if (today === '') return null
+      const byDate = new Map()
+      for (const entry of Array.isArray(overview.history) ? overview.history : []) {
+        if (entry && typeof entry.date === 'string') byDate.set(entry.date, entry)
+      }
+      const days = []
+      for (let offset = 13; offset >= 0; offset -= 1) {
+        const day = shiftDateString(today, -offset)
+        if (day !== '') days.push(day)
+      }
+      let maxTotal = 1
+      for (const day of days) {
+        const entry = byDate.get(day)
+        if (entry) maxTotal = Math.max(maxTotal, Number(entry.total) || 0)
+      }
+      const title = t('recall.historyTitle', { n: String(days.length) })
+      return h('div', null,
+        h('div', { className: 'egl-recall-section' }, h('span', { className: 'egl-recall-section-title' }, title)),
+        h('div', { className: 'egl-recall-history', role: 'img', 'aria-label': title },
+          days.map((day) => {
+            const entry = byDate.get(day)
+            const total = entry ? Math.max(0, Math.floor(Number(entry.total) || 0)) : 0
+            const done = entry ? Math.min(total, Math.max(0, Math.floor(Number(entry.done) || 0))) : 0
+            const barPx = total > 0 ? Math.max(4, Math.round((total / maxTotal) * 44)) : 0
+            const donePx = total > 0 ? Math.round((barPx * done) / total) : 0
+            return h('div', {
+              key: day,
+              className: 'egl-recall-histcol',
+              title: day + ' · ' + String(done) + '/' + String(total),
+            },
+              h('div', { className: 'egl-recall-histspace' },
+                h('div', { className: 'egl-recall-histbar', style: { height: barPx + 'px' } },
+                  h('div', { className: 'egl-recall-histdone', style: { height: donePx + 'px' } })
+                )
+              ),
+              h('span', { className: 'egl-recall-histlabel' }, String(Number(day.slice(8))))
+            )
+          })
+        )
+      )
+    }
+
+    /**
+     * 掌握情况页：表格（单词 / 掌握度进度条 / 等级 / 下次复习 / 操作），每列内容左对齐；
+     * 每行可单独重置，底部两段式「重置全部进度」。
+     */
+    function RecallMasteryPage({ t, overview, grading, onResetWord, onResetAll }) {
+      const [confirmAll, setConfirmAll] = useState(false)
+      const words = Array.isArray(overview?.words) ? overview.words : []
+      const today = typeof overview?.date === 'string' ? overview.date : ''
+      if (words.length === 0) return h('div', { className: 'egl-empty' }, t('recall.noWordbook'))
+      const head = h('div', { className: 'egl-recall-tablehead', role: 'row' },
+        h('span', { role: 'columnheader' }, t('recall.tableWord')),
+        h('span', { role: 'columnheader' }, t('recall.tableMastery')),
+        h('span', { role: 'columnheader' }, t('recall.tableLevel')),
+        h('span', { role: 'columnheader' }, t('recall.tableNext')),
+        h('span', { role: 'columnheader' }, t('recall.tableActions'))
+      )
+      const rows = words.map((entry) => {
+        const mastery = Math.min(5, Math.max(0, Math.floor(Number(entry.mastery) || 0)))
+        const masteryLabel = t('recall.mastery' + String(mastery))
+        return h('div', { key: entry.entryId, className: 'egl-recall-tablerow', role: 'row' },
+          h('span', {
+            className: 'egl-recall-cell egl-recall-cell-word',
+            role: 'cell',
+            title: String(entry.word ?? ''),
+          }, String(entry.word ?? '')),
+          h('span', { className: 'egl-recall-cell', role: 'cell' },
+            h('span', { className: 'egl-recall-bar', title: masteryLabel, 'aria-label': masteryLabel },
+              [0, 1, 2, 3, 4].map((index) => h('span', {
+                key: String(index),
+                className: 'egl-recall-barseg' + (index < mastery ? ' is-on' : ''),
+              })))
+          ),
+          h('span', { className: 'egl-recall-cell egl-recall-cell-lv', role: 'cell' },
+            t('recall.level', { level: String(mastery) })),
+          h('span', {
+            className: 'egl-recall-cell egl-recall-cell-next',
+            role: 'cell',
+            title: typeof entry.nextAt === 'string' ? entry.nextAt : '',
+          }, entry.learned ? recallNextLabel(t, entry.nextAt, today) : '-'),
+          h('span', { className: 'egl-recall-cell', role: 'cell' },
+            h('button', {
+              type: 'button',
+              className: 'egl-recall-reset',
+              disabled: grading,
+              onClick: () => onResetWord(entry.entryId),
+            }, t('recall.resetWord'))
+          )
+        )
+      })
+      return h('div', null,
+        h('div', { className: 'egl-recall-section' },
+          h('span', { className: 'egl-recall-section-title' }, t('recall.masteryTitle')),
+          h('span', { className: 'egl-muted', style: { fontSize: 11 } }, String(words.length))
+        ),
+        h('div', { className: 'egl-recall-tablewrap' },
+          h('div', { className: 'egl-recall-table', role: 'table', 'aria-label': t('recall.masteryTitle') },
+            head,
+            rows
+          )
+        ),
+        h('div', { className: 'egl-recall-resetbar' },
+          confirmAll
+            ? h(React.Fragment, null,
+                h('span', { className: 'egl-recall-resetbar-text' }, t('recall.resetAllConfirm')),
+                h('button', {
+                  type: 'button',
+                  className: 'egl-btn egl-danger',
+                  disabled: grading,
+                  onClick: () => {
+                    setConfirmAll(false)
+                    onResetAll()
+                  },
+                }, t('recall.resetYes')),
+                h('button', { type: 'button', className: 'egl-btn egl-ghost', onClick: () => setConfirmAll(false) }, t('recall.resetNo'))
+              )
+            : h('button', {
+                type: 'button',
+                className: 'egl-btn egl-ghost',
+                style: { marginLeft: 'auto' },
+                disabled: grading,
+                onClick: () => setConfirmAll(true),
+              }, t('recall.resetAll'))
+        )
+      )
+    }
+
+    /**
+     * 背记视图：两个页面（今日复习 / 掌握情况）用顶部标签切换，互不堆叠。
+     * 今日复习 = 练习方式切换 + 进度/统计 + 单题卡或完成态/空态；
+     * 掌握情况 = 独立的表格页（单词 / 掌握度 / 等级 / 下次复习 / 操作）。
+     * 全部数据状态由面板容器持有；本组件只在当前 tab 渲染。
+     */
+    function RecallView(props) {
+      const {
+        t, overview, loading, error, mode, onModeChange, onRefresh,
+        onGrade, onResetWord, onResetAll, grading, font,
+      } = props
+      const [page, setPage] = useState('practice')
+      const summary = overview?.summary && typeof overview.summary === 'object' ? overview.summary : {}
+      const items = Array.isArray(overview?.items) ? overview.items : []
+      const listedWords = Array.isArray(overview?.words) ? overview.words.length : 0
+      const summaryWords = Math.max(0, Math.floor(Number(summary.words) || 0))
+      // Only word entries with at least one Chinese meaning are playable.
+      const eligibleWords = Number.isFinite(Number(summary.eligible))
+        ? Math.max(0, Math.floor(Number(summary.eligible)))
+        : listedWords
+      const wordCount = eligibleWords
+      const roundTotal = Math.max(0, Math.floor(Number(summary.roundTotal) || 0))
+      const roundDone = Math.min(roundTotal, Math.max(0, Math.floor(Number(summary.roundDone) || 0)))
+      const completed = roundTotal > 0 && roundDone >= roundTotal
+      const effectiveMode = mode === 'en-zh' || mode === 'zh-en' ? mode : 'mix'
+      const currentIndex = items.findIndex((item) => item.done !== true)
+      const current = currentIndex >= 0 ? items[currentIndex] : null
+      const itemMode = effectiveMode === 'mix'
+        ? (Math.max(0, currentIndex) % 2 === 0 ? 'en-zh' : 'zh-en')
+        : effectiveMode
+
+      const pageTabs = h('div', { className: 'egl-recall-head' },
+        h('div', { className: 'egl-tabs', role: 'tablist', 'aria-label': t('recall.pageTabs') },
+          [['practice', t('recall.pagePractice')], ['mastery', t('recall.pageMastery')]]
+            .map(([value, label]) => h('button', {
+              key: value,
+              type: 'button',
+              role: 'tab',
+              'aria-selected': page === value,
+              className: 'egl-tab' + (page === value ? ' is-on' : ''),
+              onClick: () => setPage(value),
+            }, label))
+        )
+      )
+
+      const modeTabs = page === 'practice'
+        ? h('div', { className: 'egl-recall-head' },
+            h('span', { className: 'egl-recall-label' }, t('recall.mode')),
+            h('div', { className: 'egl-tabs', role: 'group', 'aria-label': t('recall.mode') },
+              [['mix', t('recall.modeMix')], ['en-zh', t('recall.modeEnZh')], ['zh-en', t('recall.modeZhEn')]]
+                .map(([value, label]) => h('button', {
+                  key: value,
+                  type: 'button',
+                  className: 'egl-tab' + (effectiveMode === value ? ' is-on' : ''),
+                  'aria-pressed': effectiveMode === value,
+                  onClick: () => onModeChange(value),
+                }, label))
+            )
+          )
+        : null
+
+      let body
+      if (error !== '') {
+        body = h('div', { className: 'egl-empty' },
+          h('div', { className: 'egl-empty-title' }, t('recall.failed')),
+          h('div', null, error),
+          h('div', { style: { marginTop: 10 } },
+            h('button', { type: 'button', className: 'egl-btn', onClick: onRefresh }, t('recall.retry'))
+          )
+        )
+      } else if (overview === null) {
+        body = h('div', { className: 'egl-empty' }, t('recall.loading'))
+      } else if (page === 'mastery') {
+        body = h(RecallMasteryPage, { t, overview, grading, onResetWord, onResetAll })
+      } else if (wordCount === 0) {
+        body = summaryWords > 0
+          ? h('div', { className: 'egl-empty' }, h('div', { className: 'egl-empty-title' }, t('recall.noMeanings')))
+          : h('div', { className: 'egl-empty' }, t('recall.noWordbook'))
+      } else if (completed) {
+        body = h('div', null,
+          h(RecallProgress, { t, overview }),
+          h('div', { className: 'egl-recall-done' },
+            h('div', { className: 'egl-recall-done-title' }, t('recall.doneTitle')),
+            h('div', { className: 'egl-recall-done-summary' }, t('recall.doneSummary', {
+              done: String(roundDone),
+              correct: String(Math.max(0, Math.floor(Number(summary.correct) || 0))),
+            })),
+            h('div', { className: 'egl-recall-done-hint' }, t('recall.doneHint'))
+          ),
+          h(RecallHistory, { t, overview })
+        )
+      } else if (current === null) {
+        body = h('div', { className: 'egl-empty' },
+          h('div', { className: 'egl-empty-title' }, t('recall.noRound')),
+          typeof summary.nextAt === 'string' && summary.nextAt !== ''
+            ? h('div', { className: 'egl-muted' }, t('recall.nextReview', { date: summary.nextAt }))
+            : null
+        )
+      } else {
+        body = h('div', null,
+          h(RecallProgress, { t, overview }),
+          h(RecallCard, {
+            key: String(current.entryId) + ':' + itemMode + ':' + String(roundDone),
+            t,
+            item: current,
+            mode: itemMode,
+            grading,
+            onGrade,
+          })
+        )
+      }
+
+      return h('div', { className: 'egl-recall', 'aria-busy': loading ? 'true' : 'false' },
+        pageTabs,
+        modeTabs,
+        h('div', { className: 'egl-scroll', style: { fontSize: Number(font) + 'px' } }, body)
+      )
+    }
+
+
     // ═══════════════════════════════════════════════════════════════════
     // §8 ReaderPanel 组装
     // 符号表：
     //   ReaderPanel — 侧栏面板：状态、生命周期（api.retain/release）、轮询编排、
-    //       文稿加载、查词浮窗、转写任务、生词本动作、以及 §7 视图的组合
+    //       文稿加载、查词浮窗、转写任务、生词本动作、背记动作、以及 §7 视图的组合
     // 关键约定：
     //   - 列表轮询 4s，数据签名不变不 setState；后台标签页与 in-flight 由 usePolling 守
     //   - 任务轮询 1.5s，只读一次终态；迟到响应被 jobTerminalRef 丢弃
     //   - 切文稿只触发一次 workspaceFiles 读取（签名 useMemo + useTranscript）
+    //   - 背记只在 recall tab 拉一次 recall.overview，切走/卸载 abort；grade/reset 返回的新总览直接替换状态
     //   - 所有异步回调先看 isAbortError，卸载/取消后不再 setState
     // ═══════════════════════════════════════════════════════════════════
     function ReaderPanel({ sessionId, t, api }) {
@@ -2401,10 +3383,19 @@ window.__ModuleLoader__.load({
       const [cardDetail, setCardDetail] = useState('full')
       const [readerFont, setReaderFont] = useState(() => readFontSize('reader', 13))
       const [vocabFont, setVocabFont] = useState(() => readFontSize('vocab', 13))
+      const [recallFont, setRecallFont] = useState(() => readFontSize('recall', 13))
       const [pdfZoom, setPdfZoom] = useState(() => readPdfZoom())
+      const [recall, setRecall] = useState(null)
+      const [recallLoading, setRecallLoading] = useState(false)
+      const [recallError, setRecallError] = useState('')
+      const [recallBusy, setRecallBusy] = useState('')
+      const [recallMode, setRecallMode] = useState(() => readRecallMode())
+      const [recallNonce, setRecallNonce] = useState(0)
+      const recallRequestRef = useRef(0)
       const [query, setQuery] = useState('')
       const [toast, setToast] = useState('')
       const [busy, setBusy] = useState('')
+      const [analyzeBusy, setAnalyzeBusy] = useState(false)
       const [deleteConfirm, setDeleteConfirm] = useState(false)
       const [popup, setPopup] = useState(null)
       const [transcribeOpen, setTranscribeOpen] = useState(false)
@@ -2495,6 +3486,42 @@ window.__ModuleLoader__.load({
         setDeleteConfirm(false)
       }, [selected])
 
+      // 背记：进入 recall tab 拉一次今日总览；切走或卸载 abort，迟到的错误不落 state。
+      // 序号守卫：旧的 overview 响应不能覆盖刚完成的 grade/reset；评分期间不发起新请求。
+      useEffect(() => {
+        if (mode !== 'recall' || recallBusy !== '') return undefined
+        const controller = new AbortController()
+        const requestId = ++recallRequestRef.current
+        let alive = true
+        setRecallLoading(true)
+        setRecallError('')
+        api.recallOverview(controller.signal)
+          .then((value) => {
+            if (!alive || requestId !== recallRequestRef.current) return
+            setRecall(value && typeof value === 'object' ? value : null)
+          })
+          .catch((error) => {
+            if (!alive || requestId !== recallRequestRef.current || isAbortError(error)) return
+            setRecallError(errorMessage(error))
+          })
+          .finally(() => {
+            if (alive && requestId === recallRequestRef.current) setRecallLoading(false)
+          })
+        return () => {
+          alive = false
+          controller.abort()
+        }
+      }, [api, mode, recallNonce])
+
+      // 首次拿到总览后才采用宿主配置里的默认练习方式（用户手动切换过就不再覆盖）。
+      useEffect(() => {
+        if (recall === null || recallMode !== null) return
+        const configured = recall.config && typeof recall.config.mode === 'string' ? recall.config.mode : ''
+        if (!RECALL_MODES.includes(configured)) return
+        setRecallMode(configured)
+        saveRecallMode(configured)
+      }, [recall, recallMode])
+
       // 文稿元数据签名：只有内容真的变化（合并/转写完成）才重载；切文稿不额外 bump reloadKey。
       const transcriptMetaSignature = useMemo(() => {
         if (selected === null) return ''
@@ -2581,9 +3608,17 @@ window.__ModuleLoader__.load({
           })
           return
         }
-        setVocabFont((value) => {
+        if (mode === 'vocab') {
+          setVocabFont((value) => {
+            const next = Math.min(MAX_FONT, Math.max(MIN_FONT, value + delta))
+            saveFontSize('vocab', next)
+            return next
+          })
+          return
+        }
+        setRecallFont((value) => {
           const next = Math.min(MAX_FONT, Math.max(MIN_FONT, value + delta))
-          saveFontSize('vocab', next)
+          saveFontSize('recall', next)
           return next
         })
       }, [mode])
@@ -2855,6 +3890,79 @@ window.__ModuleLoader__.load({
         }
       }, [api, busy, refreshLists, showToast, t])
 
+      const analyzeEntry = useCallback(async (entry) => {
+        if (!entry?.id || analyzeBusy) return
+        setAnalyzeBusy(true)
+        try {
+          const result = await api.analyze(entry.id)
+          if (Number(result?.failed) > 0) {
+            showToast(t('toast.analyzeFailed'))
+          } else {
+            showToast(result && result.added > 0 ? t('toast.analyzed', { added: String(result.added) }) : t('toast.analyzeSkipped'))
+          }
+          await refreshLists()
+        } catch (error) {
+          if (!isAbortError(error)) showToast(errorMessage(error))
+        } finally {
+          setAnalyzeBusy(false)
+        }
+      }, [api, analyzeBusy, refreshLists, showToast, t])
+
+      const changeRecallMode = useCallback((value) => {
+        if (!RECALL_MODES.includes(value)) return
+        setRecallMode(value)
+        saveRecallMode(value)
+      }, [])
+
+      const refreshRecall = useCallback(() => {
+        setRecallNonce((value) => value + 1)
+      }, [])
+
+      /** 提交自评：Host 返回作答后的新总览，直接替换，吃下 pending 卡片的最小刷新。 */
+      const gradeRecall = useCallback(async (entryId, grade, itemMode) => {
+        if (recallBusy !== '') return
+        const requestId = ++recallRequestRef.current
+        setRecallLoading(false)
+        setRecallBusy('grade')
+        try {
+          const value = await api.recallGrade({ entryId, grade, mode: itemMode })
+          if (requestId === recallRequestRef.current && value && typeof value === 'object') {
+            setRecall(value)
+            setRecallError('')
+          }
+        } catch (error) {
+          if (!isAbortError(error)) showToast(errorMessage(error))
+        } finally {
+          setRecallBusy('')
+        }
+      }, [api, recallBusy, showToast])
+
+      const resetRecall = useCallback(async (payload) => {
+        if (recallBusy !== '') return
+        const requestId = ++recallRequestRef.current
+        setRecallLoading(false)
+        setRecallBusy('reset')
+        try {
+          const value = await api.recallReset(payload)
+          if (requestId === recallRequestRef.current && value && typeof value === 'object') {
+            setRecall(value)
+            setRecallError('')
+          }
+        } catch (error) {
+          if (!isAbortError(error)) showToast(errorMessage(error))
+        } finally {
+          setRecallBusy('')
+        }
+      }, [api, recallBusy, showToast])
+
+      const resetRecallWord = useCallback((entryId) => {
+        void resetRecall({ entryId })
+      }, [resetRecall])
+
+      const resetRecallAll = useCallback(() => {
+        void resetRecall({ all: true })
+      }, [resetRecall])
+
       const onImportFile = useCallback(async (event) => {
         const file = event.target.files && event.target.files[0]
         event.target.value = ''
@@ -2888,7 +3996,7 @@ window.__ModuleLoader__.load({
         else showToast(text)
       }, [showToast, t])
 
-      const activeFont = mode === 'reader' ? readerFont : vocabFont
+      const activeFont = mode === 'reader' ? readerFont : mode === 'vocab' ? vocabFont : recallFont
       const envVisible = (listsLoaded && transcripts.length === 0) || transcribeOpen
       const panelVisible = transcribeOpen || job !== null || envVisible
 
@@ -3024,7 +4132,25 @@ window.__ModuleLoader__.load({
         onDelete: deleteEntry,
         onEnrich: enrichEntry,
         enriching: busy === 'enrich',
+        onAnalyze: analyzeEntry,
+        analyzing: analyzeBusy,
         font: vocabFont,
+      })
+
+      const recallModeForView = recallMode ?? (recall && recall.config && typeof recall.config.mode === 'string' ? recall.config.mode : 'mix')
+      const recallView = h(RecallView, {
+        t,
+        overview: recall,
+        loading: recallLoading,
+        error: recallError,
+        mode: recallModeForView,
+        onModeChange: changeRecallMode,
+        onRefresh: refreshRecall,
+        onGrade: gradeRecall,
+        onResetWord: resetRecallWord,
+        onResetAll: resetRecallAll,
+        grading: recallBusy !== '',
+        font: recallFont,
       })
 
       return h('div', { className: 'egl-root', ref: rootRef },
@@ -3039,7 +4165,8 @@ window.__ModuleLoader__.load({
         h('div', { className: 'egl-bar' },
           h('div', { className: 'egl-tabs', role: 'tablist' },
             h('button', { type: 'button', role: 'tab', 'aria-selected': mode === 'reader', className: 'egl-tab' + (mode === 'reader' ? ' is-on' : ''), onClick: () => setMode('reader') }, t('mode.reader')),
-            h('button', { type: 'button', role: 'tab', 'aria-selected': mode === 'vocab', className: 'egl-tab' + (mode === 'vocab' ? ' is-on' : ''), onClick: () => setMode('vocab') }, t('mode.vocab') + (pending > 0 ? ' ' + String(pending) : ''))
+            h('button', { type: 'button', role: 'tab', 'aria-selected': mode === 'vocab', className: 'egl-tab' + (mode === 'vocab' ? ' is-on' : ''), onClick: () => setMode('vocab') }, t('mode.vocab') + (pending > 0 ? ' ' + String(pending) : '')),
+            h('button', { type: 'button', role: 'tab', 'aria-selected': mode === 'recall', className: 'egl-tab' + (mode === 'recall' ? ' is-on' : ''), onClick: () => setMode('recall') }, t('mode.recall'))
           ),
           h(FontControl, { t, value: activeFont, onChange: changeFont }),
           mode === 'reader' && transcripts.length > 0
@@ -3056,13 +4183,15 @@ window.__ModuleLoader__.load({
                   h('button', { type: 'button', className: 'egl-btn', onClick: () => setTranscribeOpen((value) => !value) }, t('reader.transcribe')),
                   h('button', { type: 'button', className: 'egl-btn', disabled: busy === 'import', onClick: () => importRef.current?.click() }, t('reader.import'))
                 )
-              : h('button', { type: 'button', className: 'egl-btn', onClick: refresh }, t('common.refresh'))
+              : mode === 'vocab'
+                ? h('button', { type: 'button', className: 'egl-btn', onClick: refresh }, t('common.refresh'))
+                : h('button', { type: 'button', className: 'egl-btn', disabled: recallLoading || recallBusy !== '', onClick: refreshRecall }, t('recall.refresh'))
           )
         ),
         apiError !== ''
           ? h('div', { className: 'egl-job is-failed', style: { margin: '8px 10px 0' } }, t('error.withDetail', { message: apiError }))
           : null,
-        mode === 'reader' ? readerView : vocabView,
+        mode === 'reader' ? readerView : mode === 'vocab' ? vocabView : recallView,
         popup
           ? h('div', { ref: popupRef },
               h(Popup, { t, popup, busy: busy === 'add', onAdd: addPopup, onClose: () => setPopup(null) }))

@@ -3,12 +3,13 @@
  *
  * Gateway hardening kept from the published contract: loopback only, Origin /
  * Host local, x-english-practice header, live session required, per-action body
- * limits (overall 32MB), per-action request timeout (60s default, 240s for
- * transcripts.import PDF rendering), per-action token bucket (30 req/s, burst
+ * limits (overall 32MB), per-action request timeout (60s default, 300s for
+ * transcripts.import PDF rendering, 180s for vocab.analyze), per-action token bucket (30 req/s, burst
  * 60) and desensitized wire errors { ok:false, code, message }.
  */
 import { readdir, stat } from 'node:fs/promises'
 import { basename, dirname, extname, isAbsolute, join } from 'node:path'
+import { createAnalysisService } from './analysis.js'
 import { createJobManager } from './asr.js'
 import { createConfigLoader, DEFAULT_CONFIG, resolveExecutables } from './config.js'
 import { createEnvService, runCommand as defaultRunCommand } from './env.js'
@@ -23,6 +24,7 @@ import {
   resolveInWorkspace,
 } from './paths.js'
 import { renderPdfPages } from './pdf.js'
+import { createRecallService } from './recall.js'
 import { AUDIO_EXTENSIONS, createTranscriptService, MAX_IMPORT_PDF_BASE64_CHARS, MAX_IMPORT_TEXT_CHARS } from './transcript.js'
 import { createVocabService } from './vocab.js'
 
@@ -41,6 +43,10 @@ export const ACTION_NAMES = Object.freeze([
   'vocab.add',
   'vocab.remove',
   'vocab.enrich',
+  'vocab.analyze',
+  'recall.overview',
+  'recall.grade',
+  'recall.reset',
   'transcribe',
   'job',
   'env.check',
@@ -60,6 +66,7 @@ export const REQUEST_TIMEOUT_MS = 60000
 /** transcripts.import renders PDF pages (pdftoppm 180s + pdftotext 120s = 300s worst case), so the gateway must not cut it at 60s. */
 export const ACTION_TIMEOUT_MS = Object.freeze({
   'transcripts.import': 300000,
+  'vocab.analyze': 180000,
 })
 export const RATE_PER_SECOND = 30
 export const RATE_BURST = 60
@@ -103,6 +110,8 @@ export function createHost(ctx, overrides = {}) {
   const envService = createEnvService({ runCommand, env })
   const lookup = createLookupService({ ctx, store, runCommand, env })
   const vocab = createVocabService({ store, lookup })
+  const recall = createRecallService({ store, vocab })
+  const analysis = createAnalysisService({ ctx, store, vocab, lookup, configLoader })
   const transcripts = createTranscriptService({
     store,
     renderPdf: (args) => renderPdfPages({ ...args, executables: resolveExecutables(env).executables, runCommand }),
@@ -146,6 +155,7 @@ export function createHost(ctx, overrides = {}) {
 
   async function workspaceConfig(agent, signal) {
     const root = await workspaceOf(agent, signal)
+    analysis.noteActivity(root)
     const loaded = await configLoader.load(root)
     notifyToolTimeout(loaded.config.asr.toolTimeoutMinutes)
     return { root, config: loaded.config, warnings: loaded.warnings }
@@ -249,6 +259,22 @@ export function createHost(ctx, overrides = {}) {
     'vocab.enrich': async (agent, payload, signal) => {
       const { root, config } = await workspaceConfig(agent, signal)
       return vocab.enrich(root, config, payload, signal)
+    },
+    'recall.overview': async (agent, payload, signal) => {
+      const { root, config } = await workspaceConfig(agent, signal)
+      return recall.overview(root, config)
+    },
+    'recall.grade': async (agent, payload, signal) => {
+      const { root, config } = await workspaceConfig(agent, signal)
+      return recall.grade(root, config, payload)
+    },
+    'recall.reset': async (agent, payload, signal) => {
+      const { root, config } = await workspaceConfig(agent, signal)
+      return recall.reset(root, config, payload)
+    },
+    'vocab.analyze': async (agent, payload, signal) => {
+      const { root, config } = await workspaceConfig(agent, signal)
+      return analysis.analyzeStale(root, config, { id: payload?.id, limit: payload?.limit }, signal)
     },
     'transcribe': (agent, payload, signal) => startTranscription(agent, payload, signal),
     'job': async (agent, payload, signal) => {
@@ -401,6 +427,7 @@ export function createHost(ctx, overrides = {}) {
   async function dispose() {
     if (disposed) return
     disposed = true
+    await analysis.dispose()
     await jobs.dispose()
   }
 
@@ -412,6 +439,8 @@ export function createHost(ctx, overrides = {}) {
     workspaceConfig,
     lookup,
     vocab,
+    recall,
+    analysis,
     transcripts,
     jobs,
     env: envService,
@@ -424,6 +453,7 @@ export function createHost(ctx, overrides = {}) {
     services,
     setToolTimeoutListener,
     startTranscription,
+    startBackground: () => analysis.start(),
     getToolTimeoutMs: () => toolTimeoutMs,
   }
 }

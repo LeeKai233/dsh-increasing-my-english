@@ -2,7 +2,7 @@
   "name": "dsh-increasing-my-english",
   "version": "0.1.0",
   "type": "module",
-  "description": "English intensive reading for DSH: speaker-diarized podcast transcripts, Ctrl word lookup, and a wordbook with phonetics, meanings, word forms and etymology.",
+  "description": "English intensive reading for DSH: speaker-diarized podcast transcripts, Ctrl word lookup, a wordbook with phonetics, meanings, word forms and etymology that fills in a word's other senses from every transcript while idle, and a spaced-review mode with daily rounds.",
   "keywords": [
     "dsh",
     "dsh-plugin",
@@ -11,7 +11,9 @@
     "reading",
     "vocabulary",
     "podcast",
-    "transcript"
+    "transcript",
+    "srs",
+    "review"
   ],
   "license": "MIT",
   "author": "LeeKai233 <leslie.ttpan@gmail.com>",

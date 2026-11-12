@@ -116,13 +116,15 @@ export function createLookupService(options) {
   const runCommand = options.runCommand
   const env = options.env ?? process.env
 
+  /** Read the cache document (the caller holds the file lock). */
+  async function readCacheData(file) {
+    const detail = await store.readJsonFile(file, { entries: {} })
+    return isRecord(detail.value) && isRecord(detail.value.entries) ? detail.value : { entries: {} }
+  }
+
   async function withCache(root, task) {
     const file = join(root, CACHE_REL)
-    return store.locked(file, async () => {
-      const detail = await store.readJsonFile(file, { entries: {} })
-      const data = isRecord(detail.value) && isRecord(detail.value.entries) ? detail.value : { entries: {} }
-      return task(data, file)
-    })
+    return store.locked(file, async () => task(await readCacheData(file), file))
   }
 
   function remember(data, key, value) {
@@ -193,6 +195,37 @@ export function createLookupService(options) {
       await saveCache(file, cache)
       return { translation: value.translation, cached: false }
     })
+  }
+
+  /**
+   * Cached generic JSON completion used by the 多义分析 pipeline: the caller owns
+   * prompt construction and caching key, request() already returns parsed JSON.
+   */
+  async function askJson(root, config, input, signal) {
+    const prompt = typeof input?.prompt === 'string' ? input.prompt.trim() : ''
+    if (prompt === '') throw new Error('缺少提示词')
+    const cacheKey = 'j:' + String(input?.key ?? '')
+    const file = join(root, CACHE_REL)
+    // Keep the cache lock short: holding it across the model call would block an
+    // interactive lookup on the same file while a sense analysis is pending.
+    const cached = await store.locked(file, async () => {
+      const data = await readCacheData(file)
+      const entry = data.entries[cacheKey]
+      return isRecord(entry) && entry.version === LOOKUP_VERSION && isRecord(entry.value) ? entry.value : undefined
+    })
+    if (cached !== undefined) return { value: cached, cached: true }
+    const timeoutMs = Number(input?.timeoutMs)
+    const requestConfig = Number.isFinite(timeoutMs) && timeoutMs > 0
+      ? { ...config, lookup: { ...(isRecord(config?.lookup) ? config.lookup : {}), timeoutMs } }
+      : config
+    const value = await request(root, requestConfig, prompt, signal)
+    // Re-read under the lock so a concurrent cache write is preserved.
+    await store.locked(file, async () => {
+      const data = await readCacheData(file)
+      remember(data, cacheKey, { value })
+      await saveCache(file, data)
+    })
+    return { value, cached: false }
   }
 
   async function view(root, config, input, signal) {
@@ -292,5 +325,5 @@ export function createLookupService(options) {
     return parseJsonObject(extractCliText(document))
   }
 
-  return { view, word, translate }
+  return { view, word, translate, askJson }
 }

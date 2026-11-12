@@ -10,7 +10,8 @@ The user ends up with:
 - the Bailian CLI installed and signed in, or a clear actionable blocker;
 - poppler installed when possible (PDF import only);
 - one new transcript from the newest un-transcribed recording, if any;
-- pending wordbook entries completed and `vocab/生词本.md` exported;
+- pending wordbook entries completed, multi-sense analysis run for every stale word (repeat until `remaining` is 0; fills `meanings[].example` and new senses), and `vocab/生词本.md` exported;
+- the wordbook's words reviewable in daily review rounds in the panel's third view **Review** (EN → ZH / ZH → EN / Mixed); mastery and progress stay local in `.dsh-english/recall.json`;
 - a short report with only what they still need to do, plus one 10-minute reading task.
 
 ## Boundaries
@@ -22,7 +23,8 @@ You may do these yourself:
 - start `bl auth login --console` in the background and wait for it;
 - create the workspace directories;
 - transcribe exactly one newest un-transcribed recording;
-- complete pending wordbook entries and export the wordbook;
+- complete pending wordbook entries, run multi-sense analysis until no stale words remain, and export the wordbook;
+- point the user to today's recall round as described in Step 5c (recall has no agent tool; the panel maintains its progress);
 - report the result.
 
 Stop and ask, or tell the user exactly what to click, for:
@@ -37,6 +39,7 @@ Never:
 
 - edit the DSH desktop profile or plugin manifest by hand;
 - delete, move or rewrite the user's audio, transcripts or existing wordbook entries;
+- edit `.dsh-english/recall.json` by hand, answer recall questions for the user, or change their recall progress;
 - send workspace content anywhere except the Bailian ASR call and the plugin's own DSH-backed lookup;
 - print, store or echo API keys or other credentials;
 - install extra Bailian skills (`bl skill init`); the CLI alone is enough;
@@ -173,9 +176,26 @@ Only fill fields that are missing; do not overwrite existing content. The lookup
    - Sentence: look it up with `{ "action": "lookup", "kind": "sentence", "text": "<sentence>" }`, then update with `{ "action": "update", "entries": [{ "id": "<id>", "translation": "<from lookup>" }] }`.
    - If a lookup fails, skip that entry and continue; report it.
 
-3. Finish with `{ "action": "export" }` so `vocab/生词本.md` is current. Export even when there are no pending entries.
+3. Run multi-sense analysis with `{ "action": "analyze" }`. It compares every transcript in the workspace for the word, appends other meanings found in other documents (with context examples and source evidence, never overwriting existing meanings), and returns `{analyzed,updated,added,skipped,failed,remaining,entries}`.
+   - Repeat while `remaining > 0`: one call analyses at most `analysis.batchWords` stale words (default 2), so a large wordbook needs several calls.
+   - Only stale words are analysed: the same corpus is never re-analysed; `skipped` means the word has fewer than 2 contexts across all transcripts, which is normal.
+   - A single word can be forced with `{ "action": "analyze", "id": "<entry id>" }`.
+   - The plugin also runs this automatically in the background once the user goes idle (see the background multi-sense analysis contract in `AGENTS.md`), so this step just shows the result immediately.
 
-### 5c. Reading task
+4. Finish with `{ "action": "export" }` so `vocab/生词本.md` is current. Export even when there are no pending entries.
+
+### 5c. Review
+
+Review has no agent tool and the panel maintains its progress; just point the user at it, and never edit `.dsh-english/recall.json`.
+
+1. Read `vocab/vocabulary.json` and count the entries whose `kind` is `word` and whose `word` and `meanings` are non-empty — only those are reviewable (sentence entries never enter review).
+2. Tell the user to open the third tab, **Review**, at the top of the right-sidebar **English practice** panel:
+   - the first visit of the day prepares a **fixed round for that day**: due words first, topped up with up to the daily new-word limit and capped by the daily question limit (defaults `recall.newPerDay` 10, `recall.dailyLimit` 30, configurable in `.dsh-english/config.json`);
+   - the practice direction can be **EN → ZH** (English → Chinese), **ZH → EN** (Chinese → English) or **Mixed**, switchable in the panel at any time;
+   - after answering, self-grade **Forgot / Fuzzy / Got it / Easy** (shortcuts 1–4) and the panel schedules the next review by mastery; single words or the whole progress can be reset at any time.
+3. If no reviewable words exist, explain why (no word entries yet, or word entries without a Chinese meaning) and ask the user to look words up from a transcript first; when there is no round yet for today, reopening Review after adding words prepares it.
+
+### 5d. Reading task
 
 - If a transcript exists: read it and choose a 200–400 word passage (or the first 10–20 segments) that fits 10 minutes. Tell the user to open the right sidebar **English practice** tab, read that passage, select 3–5 words and press **Ctrl** (**⌘** on macOS), then come back to you.
 - If there is no transcript yet: tell the user to drop an episode into `recordings/` and say "transcribe it"; give the same instructions once it is ready.
@@ -192,7 +212,8 @@ Use the user's language. Keep it short.
 - restarting DSH so a newly installed `bl`/poppler is picked up;
 - adding/enabling the plugin on the Plugins page;
 - dropping an episode into `recordings/`;
-- opening the right sidebar **English practice** tab and checking the **Environment check** card.
+- opening the right sidebar **English practice** panel and doing today's round on the third tab, **Review**;
+- opening the right sidebar **English practice** panel and checking the **Environment check** card.
 
 Do not list things you already did.
 
@@ -210,6 +231,7 @@ Do not list things you already did.
 | No audio in `recordings/` | Ask the user to add one; skip transcription. |
 | Audio already transcribed | Do not transcribe again; use the existing transcript. |
 | No pending wordbook entries | Export and say there was nothing to fill. |
+| Recall fails to load | Ask the user to refresh the page first; if it still fails, restart DSH (host changes need a restart) and reopen the panel's third tab. Never edit `.dsh-english/recall.json` by hand. |
 | `lookup` fails | Skip that entry, continue, report the error. |
 | Transcription fails | Report the exact error; do not retry more than once; do not start another file. |
 | PATH/restart needed | Put "restart DSH" in **Waiting on you**; do not restart it yourself. |

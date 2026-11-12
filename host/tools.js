@@ -154,6 +154,7 @@ export function registerTools(ctx, host) {
       'Read and edit the English wordbook in the current workspace (vocab/vocabulary.json). ' +
       'Actions: list (defaults to pending entries), lookup (dictionary lookup: ipa, meanings, example translation, word forms, etymology), ' +
       'add, update (fill ipa/meanings/translation/family/etymology for entries the assistant resolved itself), ' +
+      'analyze (compare every transcript for the word\'s other meanings and append them to the entry), ' +
       'enrich (re-query one entry by id and merge its word forms and etymology), remove, export (rewrites vocab/生词本.md).',
     parameters: {
       type: 'object',
@@ -161,7 +162,7 @@ export function registerTools(ctx, host) {
       properties: {
         action: {
           type: 'string',
-          enum: ['list', 'lookup', 'add', 'update', 'enrich', 'remove', 'export'],
+          enum: ['list', 'lookup', 'add', 'update', 'enrich', 'analyze', 'remove', 'export'],
           description: 'What to do.',
         },
         status: { type: 'string', enum: ['pending', 'done', 'all'], description: 'Filter for list.' },
@@ -172,7 +173,7 @@ export function registerTools(ctx, host) {
         entry: { type: 'object', additionalProperties: true, description: 'One entry for add.' },
         entries: { type: 'array', items: { type: 'object', additionalProperties: true }, description: 'Entries for update.' },
         ids: { type: 'array', items: { type: 'string' }, description: 'Entry ids for remove.' },
-        id: { type: 'string', description: 'Entry id for enrich.' },
+        id: { type: 'string', description: 'Entry id for enrich / analyze.' },
       },
       required: ['action'],
     },
@@ -193,6 +194,11 @@ export function registerTools(ctx, host) {
           sentences: { type: 'integer' },
           removed: { type: 'integer' },
           updated: { type: 'integer' },
+          analyzed: { type: 'integer' },
+          added: { type: 'integer' },
+          skipped: { type: 'integer' },
+          failed: { type: 'integer' },
+          remaining: { type: 'integer' },
         },
       },
       render: (_args, value) => {
@@ -212,6 +218,16 @@ export function registerTools(ctx, host) {
             type: 'text',
             text: `${result.text ?? ''} ${result.ipa ?? ''}${result.cached ? '（缓存）' : ''}\n${meanings}${result.sentenceZh ? `\n例句翻译：${result.sentenceZh}` : ''}${forms}${roots}`,
           }]
+        }
+        if (value.analyzed !== undefined) {
+          const lines = [
+            `多义分析：分析 ${value.analyzed ?? 0} 个词，新增 ${value.added ?? 0} 条释义（${value.updated ?? 0} 个词有更新），跳过 ${value.skipped ?? 0} 个，失败 ${value.failed ?? 0} 个，剩余 ${value.remaining ?? 0} 个待分析。`,
+          ]
+          for (const entry of Array.isArray(value.entries) ? value.entries.slice(0, 20) : []) {
+            const meanings = Array.isArray(entry.meanings) ? entry.meanings.map((meaning) => `${meaning.pos ? `${meaning.pos} ` : ''}${meaning.zh}`).join('；') : ''
+            lines.push(`- ${entry.word ?? ''}：${meanings}`)
+          }
+          return [{ type: 'text', text: lines.join('\n') }]
         }
         if (Array.isArray(value.entries)) {
           const lines = value.entries.slice(0, 20).map((entry) => (entry.kind === 'sentence'
@@ -255,6 +271,11 @@ export function registerTools(ctx, host) {
           }
           case 'enrich': {
             const result = await enrichVocabEntry(exec.agent, { id: args.id }, exec.signal)
+            return { ok: true, ...result }
+          }
+          case 'analyze': {
+            const { root, config } = await services.workspaceConfig(exec.agent, exec.signal)
+            const result = await services.analysis.analyzeStale(root, config, { id: args.id }, exec.signal)
             return { ok: true, ...result }
           }
           case 'remove': {

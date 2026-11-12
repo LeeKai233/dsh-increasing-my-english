@@ -13,6 +13,7 @@ export const DATA_DIR = '.dsh-english'
 export const CONFIG_REL = join(DATA_DIR, 'config.json')
 export const CACHE_REL = join(DATA_DIR, 'lookup-cache.json')
 export const PDFS_REL = join(DATA_DIR, 'pdfs')
+export const RECALL_REL = join(DATA_DIR, 'recall.json')
 export const VOCAB_REL = join('vocab', 'vocabulary.json')
 export const VOCAB_MD_REL = join('vocab', '生词本.md')
 

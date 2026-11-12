@@ -2,7 +2,7 @@
 
 [English](README.md) · [更新日志](CHANGELOG.md) · [MIT 许可证](LICENSE)
 
-把播客录音用百炼 `bl speech recognize` 转成分角色文稿，在 DSH 右侧边栏精读；选中单词或句子按 **Ctrl** 查词，点一下收进带音标、释义、例句、词形与词源的生词本。
+把播客录音用百炼 `bl speech recognize` 转成分角色文稿，在 DSH 右侧边栏精读；选中单词或句子按 **Ctrl** 查词，点一下收进带音标、释义、例句、词形与词源的生词本；生词本会在插件空闲时**自动对比全部文稿补全多义**（同一个词在别的文稿里的其它意思也会收进来）；再打开第三个视图「**背记**」，每天按掌握度做一轮主动回忆。
 
 [![npm version](https://img.shields.io/npm/v/dsh-increasing-my-english.svg)](https://www.npmjs.com/package/dsh-increasing-my-english)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -30,7 +30,7 @@ AGENT_ONBOARDING.zh.md，就直接读本地文件），然后照它执行。不�
 2. **装插件**：侧栏「插件」→「添加插件」→ 输入 `dsh-increasing-my-english` → 安装并启用。
 3. **准备百炼**：注册阿里云百炼，按下一节「百炼 CLI 安装与登录（图文）」装好 `bl` 并登录。
 
-之后打开右侧边栏的「英语精读」面板，等空状态里的「**环境自检**」全绿（需要 `bl` 已登录、Poppler 与工作区都就绪；已有文稿时，打开「转写录音」面板也能看到这张卡），就可以把录音放进 `recordings/` 开始转写了。
+之后打开右侧边栏的「英语精读」面板，等空状态里的「**环境自检**」全绿（需要 `bl` 已登录、Poppler 与工作区都就绪；已有文稿时，打开「转写录音」面板也能看到这张卡），就可以把录音放进 `recordings/` 开始转写了。查词收进生词本后，再打开面板第三个视图「**背记**」，每天做一轮主动回忆并把生词真正记住。
 
 ## 百炼 CLI 安装与登录（图文）
 
@@ -126,7 +126,7 @@ bl auth login --console
 
 ### 阅读文稿
 
-- 打开方式：会话头部工具条上的**耳机按钮**（悬停提示「打开英语精读」），或右侧栏 guide 里的「英语精读」卡片。面板顶部是「文稿 / 生词本」两个视图切换和字号 **A− / A+**（12–20px，「文稿」与「生词本」各自记住上次的值）。
+- 打开方式：会话头部工具条上的**耳机按钮**（悬停提示「打开英语精读」），或右侧栏 guide 里的「英语精读」卡片。面板顶部是「文稿 / 生词本 / 背记」三个视图切换和字号 **A− / A+**（12–20px，「文稿」「生词本」「背记」各自记住上次的值）。
 - 有文稿时，顶部下拉框（「选择文稿」）可切换；文稿按说话人分段、每段带时间戳。
 - 导入的文稿没有说话人和时间戳，也不显示「合并短句」；PDF 文稿顶部还有缩放（+ / −，记住上次比例）与「DSH 预览」按钮，可在 DSH 里打开原 PDF。
 
@@ -144,8 +144,18 @@ bl auth login --console
   - **词形**：不同词性（名词/动词/形容词/副词…）与不规则形式（过去式、过去分词、复数、比较级、最高级、现在分词、第三人称单数等），**最多 8 条**；
   - **词源**：来源语言 + 词根/词缀拆解（例如 nostalgia = 希腊语 nostos「返乡」+ algos「痛苦」）+ 一段中文词源说明。
 - 老词条没有这些字段时，卡片上会出现「**补全词形/词源**」按钮，点一下重新查询并补全（对应 HTTP action `vocab.enrich` 与工具 `action=enrich`）。
+- **多义自动补全**：当用户没有使用插件（面板关闭 / 隐藏，最近约 3 分钟没有面板请求）时，后台会逐批把生词本里的单词放到当前工作区**全部文稿**里找真实用法，调用查词后端把「别的文稿里出现过的其它意思」追加进词条。新义项带**语境例句**与**来源文稿**证据，已有释义只补证据、不覆盖，最多保留 8 条；上下文不足 2 条的词只标记「没有更多上下文」，不会调用模型。只有语料 / 词形 / 原例句变化或失败重试窗口到期才会重新分析，不会反复消耗模型；卡片上会显示「多义分析：N 处 · M 篇文稿」，也可点「**分析多义**」立即分析这一个词（HTTP `vocab.analyze`、工具 `action=analyze`）。
 - 生词本视图支持搜索、按「单词 / 句子」过滤、按文稿筛选、排序（时间 / A–Z）、详情「全 / 简」与删除；有「待补全」条目时顶部会出现提示条和「复制补全提示」按钮——把提示词粘贴到对话里，助手就会用 `english_vocab` 读 pending 条目并写回音标、释义与例句翻译。
 - `vocab/生词本.md` 是每次变更后自动重写的可读导出。
+
+### 背记
+
+- 面板顶部第三个视图「**背记**」把生词本里的**单词**做成主动回忆练习：**英→中**（给英文单词和音标，写出中文意思）、**中→英**（给中文释义，写出英文单词）、**混合**（同一轮里两种方式交替）。句子条目不会进入背记，没有中文释义的单词也不出题。
+- 每个单词有掌握度 **0–5**（生疏 / 初识 / 初记 / 熟悉 / 掌握 / 精通）。提交答案后显示自动判断（正确 / 接近 / 不正确，仅供参考）和正确答案，再按 **忘记 / 模糊 / 记得 / 熟练** 自评（按钮可点，快捷键 **1–4**，Enter 采用自动判断的推荐档）；掌握度随之升降，下次复习间隔按 **1 / 1 / 2 / 4 / 7 / 15 天** 安排（答错的词最早明天再来，不会当天重复出题）。
+- 每天首次打开背记时自动生成**当天固定一轮**：先取到期该复习的词（按到期日、掌握度排序），再用**每日新词上限**补新词，总题量有上限；当天反复进入不重排、不追加；当天已有轮次后再加入生词本的词，明天才进入。
+- 不记得可以点「不会，直接看答案」。答题卡上还有「**显示例句**」按钮：点开显示包含这个词的例句（中→英时把目标词挖空成等长下划线，不直接给答案），没有例句时会提示去生词本补全；提交后揭示区也会带例句与翻译。答完显示今日完成情况与答对数、连续复习天数、最近 14 天记录。「**掌握情况**」是**独立页面**：点顶部「今日复习 / 掌握情况」标签切换进入，不再堆在练习卡下面；表格按掌握度排序列出**单词 / 掌握度进度条 / 等级 / 下次复习 / 操作**（各列左对齐），每个词可单独重置，页面底部可重置全部进度。
+- 删除生词本里的词条后，对应的背记进度会在下次读取时自动清理；进度保存在 `.dsh-english/recall.json`，删掉这个文件等于从零开始。
+- 练习方式可随时切换，选择记在浏览器本地；Host 配置里的 `recall.mode` 只是首次打开的默认方式。
 
 ### PDF 导入
 
@@ -178,10 +188,11 @@ bl auth login --console
   vocab/生词本.md                 每次变更后自动重写导出
   .dsh-english/config.json        可选：覆盖默认配置（见下）
   .dsh-english/lookup-cache.json  查词缓存
+  .dsh-english/recall.json        背记进度（掌握度、每日轮次；删词条后自动清理）
   .dsh-english/pdfs/<uuid>/       PDF 导入缓存（source.pdf / page-XX.png / words.xml）
 ```
 
-数据格式为 `version: 1` 并保持冻结（只允许新增可选字段）；JSON 损坏时会备份成 `*.corrupt-<时间戳>` 再按默认值继续。
+数据格式为 `version: 1` 并保持冻结（只允许新增可选字段）；背记进度 `.dsh-english/recall.json` 是独立的新数据文件，同样为 `version: 1`。JSON 损坏时会备份成 `*.corrupt-<时间戳>` 再按默认值继续。
 
 ## 配置
 
@@ -211,6 +222,20 @@ bl auth login --console
   "dirs": {
     "recordings": "recordings",
     "transcripts": "transcripts"
+  },
+  "recall": {
+    "newPerDay": 10,
+    "dailyLimit": 30,
+    "mode": "mix"
+  },
+  "analysis": {
+    "enabled": true,
+    "idleMinutes": 3,
+    "batchWords": 2,
+    "maxContexts": 6,
+    "maxContextChars": 240,
+    "timeoutMs": 30000,
+    "retryMinutes": 10
   }
 }
 ```
@@ -232,6 +257,15 @@ bl auth login --console
 | `import.maxPdfPages` | 120 | PDF 导入最多渲染的页数 |
 | `import.dpi` | 100 | PDF 页面渲染分辨率 |
 | `dirs.recordings` / `dirs.transcripts` | `recordings` / `transcripts` | 工作区内的相对目录 |
+| `recall.newPerDay` | 10 | 每天引入的新词上限；`0` 表示只复习到期词 |
+| `recall.dailyLimit` | 30 | 每天一轮的总题量上限 |
+| `recall.mode` | `mix` | 首次打开的练习方式：`mix`（混合）/ `en-zh`（英→中）/ `zh-en`（中→英）；面板里切换后记在浏览器本地 |
+| `analysis.enabled` | `true` | 是否运行后台自动多义分析；`false` 只停后台，面板「分析多义」与 `action=analyze` 仍可用 |
+| `analysis.idleMinutes` | 3 | 工作区多久没有插件请求后开始后台批次（0.5–120） |
+| `analysis.batchWords` | 2 | 每批最多分析几个词（1–20）；批间 20s |
+| `analysis.maxContexts` / `analysis.maxContextChars` | 6 / 240 | 每个词送给模型的上下文条数 / 单条最大长度 |
+| `analysis.timeoutMs` | 30000 | 单次多义分析模型调用超时（5000–120000） |
+| `analysis.retryMinutes` | 10 | 分析失败后多久重试（1–1440） |
 
 **可执行路径不进配置文件。** `config.json` 在工作区里、可被写工作区的进程修改，为避免把配置变成执行入口，`bl`、`pdftoppm`、`pdftotext` 只能通过**只读环境变量**覆盖（值必须是绝对路径或纯命令名，不允许空格、参数或 shell 元字符）：
 
@@ -246,9 +280,9 @@ bl auth login --console
 ## 助手工具
 
 - `english_transcribe { audio, speakers?, model?, language? }`：转写并等待完成，返回 `{ok,jobId,transcript,segments,speakers,durationMs,model,warnings,state,error?}`。`audio` 用工作区相对路径或绝对路径；失败时给出可操作信息（`bl` 缺失/未登录时附安装或登录命令）。
-- `english_vocab { action, ... }`：`action` 取 `list`（默认只列待补全条目）/ `lookup` / `add` / `update` / `enrich` / `remove` / `export`。
-  - `list` 默认列 pending；`update` 用于助手自己补全音标/释义/例句翻译；`enrich` 按 id 重新查询词形与词源；`export` 重写 `vocab/生词本.md`。
-- 面板与助手走同一套 Host 实现：面板的动作（文稿列表、转写、查词、生词本等）走插件自建的 `POST /dsh-english/api`（只接受回环地址与同源页面，要求 `x-english-practice: 1` 请求头），文稿正文经宿主 workspaceFiles 接口读取；助手通过上面两个工具调用。
+- `english_vocab { action, ... }`：`action` 取 `list`（默认只列待补全条目）/ `lookup` / `add` / `update` / `enrich` / `analyze` / `remove` / `export`。
+  - `list` 默认列 pending；`update` 用于助手自己补全音标/释义/例句翻译；`enrich` 按 id 重新查询词形与词源；`analyze` 对比全部文稿补全多义（可传 `id` 只分析一个词；不带 `id` 时每次最多分析 `analysis.batchWords` 个过期词，默认 2 个，按返回的 `remaining` 继续调用直到 0；返回 `{analyzed,updated,added,skipped,failed,remaining,entries}`）；`export` 重写 `vocab/生词本.md`。
+- 面板与助手走同一套 Host 实现：面板的动作（文稿列表、转写、查词、生词本等）走插件自建的 `POST /dsh-english/api`（只接受回环地址，要求 `x-english-practice: 1` 请求头；浏览器带 `Origin` 时必须为本地来源），文稿正文经宿主 workspaceFiles 接口读取；助手通过上面两个工具调用。
 
 ## FAQ
 
@@ -267,8 +301,11 @@ bl auth login --console
 **为什么有的词查词/生词本没有释义？**
 查词失败时会以「待补全」入库。点卡片上的「补全词形/词源」，或在对话里说「补全生词本」让助手补。
 
+**多义分析什么时候跑？会额外花钱吗？**
+默认在插件空闲约 3 分钟后自动在后台跑，不需要打开面板；也可以在卡片上点「分析多义」或让助手调用 `action=analyze` 立即跑。它用的是和查词相同的后端（默认 DSH 当前模型，`lookup.backend = "bl"` 时走百炼文本模型），一次只分析有变化的词，语料没变不会重复调用；也可以在 `.dsh-english/config.json` 的 `analysis` 里停掉后台自动分析（`enabled: false`；手动「分析多义」仍可用）或调整 `idleMinutes` / `batchWords`。
+
 **插件、数据、隐私？**
-不收集任何遥测。文稿、生词本、缓存都在你当前工作区的普通文件里，可随时备份或搬走。HTTP 接口只监听回环地址、只接受同源请求，并带自定义请求头。
+不收集任何遥测。文稿、生词本、缓存都在你当前工作区的普通文件里，可随时备份或搬走。HTTP 接口只监听回环地址、要求自定义请求头；浏览器带 `Origin` 时必须为本地来源。
 
 **卸载 / 换源？**
 桌面版的插件行由 Electron profile 独占：在插件页「移除」再「添加」即可，不要手工改插件 manifest；移除插件不会删你的工作区数据。
@@ -277,14 +314,14 @@ bl auth login --console
 
 | 路径 | 说明 |
 |---|---|
-| `index.js` | 插件入口：`name` / `inject` / `apply(ctx)` 只做组装（约 17 行） |
-| `host/` | Host 半，12 个模块：`api` / `asr` / `config` / `env` / `json-store` / `lookup` / `paths` / `pdf` / `text` / `tools` / `transcript` / `vocab` |
+| `index.js` | 插件入口：`name` / `inject` / `apply(ctx)` 只做组装（约 22 行） |
+| `host/` | Host 半，15 个模块：`analysis` / `api` / `asr` / `config` / `env` / `json-store` / `lookup` / `paths` / `pdf` / `recall` / `senses` / `text` / `tools` / `transcript` / `vocab` |
 | `client.js` | Client 半，单文件 `window.__ModuleLoader__.load` bundle（§0–§9 分区） |
 | `cordis.patch.yml` | 插件 bundle patch（insert id `english-practice`） |
 | `locale/{zh,en}.json` | 插件页展示元数据（标题 / 描述） |
 | `icon.svg` | 插件页图标 |
 | `assets/bailian-cli/` | README 图文（8 张 PNG） |
-| `tests/` | `node --test` 单测 + 契约 + 集成测试（10 个 `*.test.mjs`） |
+| `tests/` | `node --test` 单测 + 契约 + 集成测试（14 个 `*.test.mjs`） |
 | `AGENTS.md` | 维护者契约：架构决策、冻结接口、发布流程 |
 | `README.md` / `README.zh.md` | 英文 / 中文文档 |
 | `CHANGELOG.md` | 更新日志（Keep a Changelog） |
@@ -296,13 +333,13 @@ npm 发布内容以 `package.json#files` 为准：`index.js`、`host/`、`client
 
 ## 开发备注
 
-- **零构建**：Host 半是 Node ESM（`index.js` 只做组装 + `host/` 下 12 个模块），Client 半是手写的单文件 `client.js`（`window.__ModuleLoader__.load` bundle，§0–§9 分区）。没有 TypeScript、没有打包器、没有运行时依赖。
+- **零构建**：Host 半是 Node ESM（`index.js` 只做组装 + `host/` 下 15 个模块），Client 半是手写的单文件 `client.js`（`window.__ModuleLoader__.load` bundle，§0–§9 分区）。没有 TypeScript、没有打包器、没有运行时依赖。
 - **改 Host**：DSH 重启后生效（桌面版退出重开；CLI / `dsh web` 重启进程）。
 - **改 Client**：刷新页面即可（bundle 按包解析，内容变化后页面会重新拉取）。
 - **改 `package.json` 的 `dsh` 清单或 `cordis.patch.yml`**：需要重启 DSH。
-- **自检**：`npm run check`（`node --check index.js` + `node --check client.js` + `node --test` 自动发现 `tests/*.test.mjs`），需要 **Node 20+**；当前 10 个测试文件（单测 + 契约 + 集成）全绿。
-- **本地开发**：`package.json` 开发期保持 `@local/dsh-english-practice`，桌面 profile 以 `link:` 安装；发布时统一改名 `dsh-increasing-my-english`（`package.json`、`cordis.patch.yml`、`client.js` 的 PKG 与 loader id、locale meta）。
-- **稳定标识（不要改）**：`.dsh-english/`、`/dsh-english/api`、`x-english-practice` 请求头、工具名 `english_transcribe` / `english_vocab`、tab kind `english-reader`、locale NS `englishPractice`、patch 行 id `english-practice`。
+- **自检**：`npm run check`（`node --check index.js` + `node --check client.js` + `node --test` 自动发现 `tests/*.test.mjs`），需要 **Node 20+**；当前 14 个测试文件（单测 + 契约 + 集成）全绿。
+- **本地开发**：包名是 `dsh-increasing-my-english`，桌面 profile 以 `link:` 安装本目录；改名必须同步 `package.json`、`cordis.patch.yml`、`client.js` 的 PKG 与 loader id、locale meta。
+- **稳定标识（不要改）**：`.dsh-english/`、`/dsh-english/api`、`x-english-practice` 请求头、工具名 `english_transcribe` / `english_vocab`、tab kind `english-reader`、locale NS `englishPractice`、patch 行 id `english-practice`、背记数据文件 `.dsh-english/recall.json`（`version: 1`）。
 
 ## 许可证
 

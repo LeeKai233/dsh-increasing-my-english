@@ -2,7 +2,7 @@
 
 [中文](README.zh.md) · [Changelog](CHANGELOG.md) · [MIT License](LICENSE)
 
-Transcribe podcast recordings into speaker-diarized transcripts with the Bailian `bl speech recognize` CLI, read them in the DSH right sidebar, and press **Ctrl** on a word or sentence to look it up and keep it in a wordbook with phonetics, meanings, example sentences, word forms and etymology.
+Transcribe podcast recordings into speaker-diarized transcripts with the Bailian `bl speech recognize` CLI, read them in the DSH right sidebar, and press **Ctrl** on a word or sentence to look it up and keep it in a wordbook with phonetics, meanings, example sentences, word forms and etymology. While the plugin is idle, the wordbook **compares every transcript in the workspace and fills in the word's other senses** automatically. Then open the third view, **Review**, to review those words actively every day.
 
 [![npm version](https://img.shields.io/npm/v/dsh-increasing-my-english.svg)](https://www.npmjs.com/package/dsh-increasing-my-english)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -32,7 +32,7 @@ Prefer to do it by hand? The three steps below walk through the same setup.
 2. **Install the plugin**: sidebar → **Plugins** → **Add plugin** → enter `dsh-increasing-my-english` → install and enable it.
 3. **Set up Bailian**: create an Alibaba Cloud Bailian account and install + log in to the Bailian CLI by following the illustrated guide in [README.zh.md](README.zh.md#百炼-cli-安装与登录图文) (summarized below).
 
-Then open the **English practice** tab in the right sidebar. Once the **Environment check** card in the empty state is all green (it requires `bl` signed in, Poppler and a writable workspace; with existing transcripts the card is also shown while the **Transcribe** panel is open), drop a recording into `recordings/` and start transcribing.
+Then open the **English practice** tab in the right sidebar. Once the **Environment check** card in the empty state is all green (it requires `bl` signed in, Poppler and a writable workspace; with existing transcripts the card is also shown while the **Transcribe** panel is open), drop a recording into `recordings/` and start transcribing. As you collect words into the wordbook, open the third view **Review** for one active-recall round a day.
 
 ## Install and log in to the Bailian CLI
 
@@ -73,7 +73,7 @@ See the illustrated steps in [README.zh.md](README.zh.md#百炼-cli-安装与登
 
 ### Read transcripts
 
-- Open it with the **headphones button** in the conversation header toolbar (tooltip: “Open English practice”), or the “English practice” card in the right-sidebar guide. The panel has a **Transcript / Wordbook** view switch and **A− / A+** font sizing (12–20px, remembered separately for each view).
+- Open it with the **headphones button** in the conversation header toolbar (tooltip: “Open English practice”), or the “English practice” card in the right-sidebar guide. The panel has a **Transcript / Wordbook / Review** view switch and **A− / A+** font sizing (12–20px, remembered separately for each view).
 - When transcripts exist, a dropdown at the top (“Choose a transcript”) switches between them; transcripts are grouped by speaker with per-segment timestamps.
 - Imported transcripts have no speakers or timestamps and do not show **Merge short sentences**; PDF transcripts also get zoom (+ / −, remembered) and a **Preview** button that opens the original PDF inside DSH.
 
@@ -91,8 +91,18 @@ See the illustrated steps in [README.zh.md](README.zh.md#百炼-cli-安装与登
   - **word forms**: other parts of speech and irregular forms (past tense, past participle, plural, comparative, superlative, present participle, third-person singular, …), **up to 8**;
   - **etymology**: source language + root/affix breakdown + a short Chinese explanation.
 - Older entries missing those fields show a **Fetch forms & etymology** button (HTTP `vocab.enrich`, tool `action=enrich`).
+- **Automatic multi-sense completion**: when the plugin is idle (panel closed/hidden, no request for about 3 minutes), a background pass runs the wordbook words through **every transcript in the workspace**, asks the lookup backend for the senses actually used in those contexts, and appends the meanings found in other documents to the entry. New senses carry a **context example** and **source transcript** evidence; existing meanings are never overwritten (up to 8 meanings). Words with fewer than 2 contexts are only marked “no other contexts” and never cost a model call. Only a changed corpus/word-forms/original sentence (or a due retry) re-analyses a word, so idle time does not burn the model repeatedly. The card shows **Senses analyzed: N contexts · M transcripts**, and an **Analyze senses** button forces one word immediately (HTTP `vocab.analyze`, tool `action=analyze`).
 - The wordbook view supports search, word/sentence filtering, transcript filtering, sorting (time / A–Z), Full/Simple detail and deletion; when pending entries exist a banner with a **Copy prompt** button appears — paste it into the chat and the assistant reads pending entries with `english_vocab` and writes phonetics/meanings/translations back.
 - `vocab/生词本.md` is a readable export rewritten after every change.
+
+### Review
+
+- The third view, **Review**, turns wordbook **words** into active-recall practice: **EN → ZH** (see the word and its phonetics, write the Chinese meaning), **ZH → EN** (see the meanings, write the word) and **Mixed** (the two alternate within one round). Sentence entries are never included, and words without a Chinese meaning are skipped.
+- Each word has a mastery level from **0 to 5** (Fresh → Started → Learning → Familiar → Solid → Mastered). After submitting an answer you see the auto-check verdict (correct / close / incorrect — a hint only) and the correct answer, then self-grade **Forgot / Fuzzy / Got it / Easy** (buttons, shortcuts **1–4**; Enter takes the recommended grade). Mastery moves with the grade and the next review is scheduled **1 / 1 / 2 / 4 / 7 / 15 days** out; a missed word is never shown twice on the same day.
+- The first time you open Review on a day it prepares a **fixed round for that day**: due words first (ordered by due date, then mastery), topped up with up to the **daily new-word limit**, capped by the **daily question limit**. Reopening it later the same day keeps the same round — no reshuffle, no additions; words added to the wordbook after that day's round exists join tomorrow.
+- Stuck? Use **Don’t know — show the answer**. The card also has a **Show example** toggle that reveals the example sentence containing the word (masked to same-length underscores in ZH → EN so it does not give the answer away; when the wordbook entry has no example it says so). After you submit, the example and its translation are shown in the answer area too. When the round is done you get today’s completion count and correct answers, streak days, and the last 14 days. **Mastery** is a separate page: switch to it with the **Today / Mastery** tabs at the top (it no longer stacks under the practice card). Its table sorts by mastery and lists **word / mastery bar / level / next review / actions** (each column left-aligned); a word can be reset individually and the whole progress can be reset at the bottom.
+- Deleting a wordbook entry cleans up its review state lazily on the next read; progress lives in `.dsh-english/recall.json`, and deleting that file starts from scratch.
+- The practice direction can be switched at any time and is remembered in the browser; `recall.mode` in the host config is only the default for the first visit.
 
 ### PDF import
 
@@ -125,10 +135,11 @@ See the illustrated steps in [README.zh.md](README.zh.md#百炼-cli-安装与登
   vocab/生词本.md                  readable export rewritten on every change
   .dsh-english/config.json        optional configuration overrides
   .dsh-english/lookup-cache.json  lookup cache
+  .dsh-english/recall.json        recall progress (mastery, daily rounds; cleaned up when entries are deleted)
   .dsh-english/pdfs/<uuid>/       PDF cache (source.pdf / page-XX.png / words.xml)
 ```
 
-The data format is frozen at `version: 1` (only optional fields may be added); corrupt JSON is backed up as `*.corrupt-<timestamp>` and the default is used instead.
+The data format is frozen at `version: 1` (only optional fields may be added); the recall progress file `.dsh-english/recall.json` is a separate new data file, also at `version: 1`. Corrupt JSON is backed up as `*.corrupt-<timestamp>` and the default is used instead.
 
 ## Configuration
 
@@ -158,6 +169,20 @@ The data format is frozen at `version: 1` (only optional fields may be added); c
   "dirs": {
     "recordings": "recordings",
     "transcripts": "transcripts"
+  },
+  "recall": {
+    "newPerDay": 10,
+    "dailyLimit": 30,
+    "mode": "mix"
+  },
+  "analysis": {
+    "enabled": true,
+    "idleMinutes": 3,
+    "batchWords": 2,
+    "maxContexts": 6,
+    "maxContextChars": 240,
+    "timeoutMs": 30000,
+    "retryMinutes": 10
   }
 }
 ```
@@ -179,6 +204,15 @@ The host caches the config for about 2 seconds: edits take effect after a moment
 | `import.maxPdfPages` | 120 | maximum pages rendered for PDF import |
 | `import.dpi` | 100 | PDF page rendering resolution |
 | `dirs.recordings` / `dirs.transcripts` | `recordings` / `transcripts` | relative directories inside the workspace |
+| `recall.newPerDay` | 10 | max new words introduced per day; `0` reviews due words only |
+| `recall.dailyLimit` | 30 | max questions in one daily round |
+| `recall.mode` | `mix` | practice direction for the first visit: `mix` / `en-zh` (English → Chinese) / `zh-en` (Chinese → English); changes in the panel are remembered in the browser |
+| `analysis.enabled` | `true` | run the automatic background pass; `false` stops it (the card's **Analyze senses** button and `action=analyze` still work) |
+| `analysis.idleMinutes` | 3 | how long the workspace must be free of plugin requests before a background batch starts (0.5–120) |
+| `analysis.batchWords` | 2 | max words analysed per background batch (1–20); batches are 20s apart |
+| `analysis.maxContexts` / `analysis.maxContextChars` | 6 / 240 | context sentences per word and their max length in the prompt |
+| `analysis.timeoutMs` | 30000 | timeout of one sense-analysis model call (5000–120000) |
+| `analysis.retryMinutes` | 10 | how long a failed analysis waits before it is retried (1–1440) |
 
 **Executable paths are not configurable through the config file.** `config.json` lives in the (writable) workspace, so to keep it from becoming an execution vector, `bl`, `pdftoppm` and `pdftotext` can only be overridden through **read-only environment variables** (absolute path or bare command name; no spaces, arguments or shell metacharacters):
 
@@ -193,9 +227,9 @@ The legacy keys `blPath`, `import.pdfToPpmPath` and `import.pdfToTextPath` are r
 ## Agent tools
 
 - `english_transcribe { audio, speakers?, model?, language? }` — transcribe and wait; returns `{ok,jobId,transcript,segments,speakers,durationMs,model,warnings,state,error?}`. `audio` may be workspace-relative or absolute. Failures are actionable (install/login commands when `bl` is missing or not logged in).
-- `english_vocab { action, ... }` — `action` is one of `list` (defaults to pending entries) / `lookup` / `add` / `update` / `enrich` / `remove` / `export`.
+- `english_vocab { action, ... }` — `action` is one of `list` (defaults to pending entries) / `lookup` / `add` / `update` / `enrich` / `analyze` / `remove` / `export`. `analyze` (optional `id`) compares every transcript for the word, appends the other senses with context/source evidence and returns `{analyzed,updated,added,skipped,failed,remaining,entries}`. Without `id` one call analyses at most `analysis.batchWords` stale words (default 2); repeat while `remaining > 0`.
   - `list` defaults to pending entries; `update` lets the assistant fill phonetics/meanings/example translations itself; `enrich` re-queries word forms and etymology by id; `export` rewrites `vocab/生词本.md`.
-- The panel and the assistant share the same Host implementation: panel actions (transcript list, transcription, lookup, wordbook, …) call `POST /dsh-english/api` (loopback and same-origin only, `x-english-practice: 1` header required), transcript bodies are read through the host's workspaceFiles interface, and the assistant calls the two tools above.
+- The panel and the assistant share the same Host implementation: panel actions (transcript list, transcription, lookup, wordbook, …) call `POST /dsh-english/api` (loopback only with the `x-english-practice: 1` header; a browser `Origin` must be local), transcript bodies are read through the host's workspaceFiles interface, and the assistant calls the two tools above.
 
 ## FAQ
 
@@ -214,8 +248,11 @@ Transcription calls Bailian ASR and is billed at Bailian prices; audio is upload
 **Why does an entry have no meaning yet?**
 Failed lookups are stored as “needs details”. Click **Fetch forms & etymology** on the card, or ask the assistant to “complete the pending wordbook entries”.
 
+**When does the multi-sense analysis run, and does it cost extra?**
+By default it runs in the background after the plugin has been idle for about 3 minutes — the panel does not need to be open. You can also click **Analyze senses** on a card or ask the assistant for `action=analyze`. It uses the same backend as lookups (the current DSH model by default; Bailian text models when `lookup.backend = "bl"`), analyses only stale words, and never repeats a model call while the corpus is unchanged. Stop the background pass or tune `idleMinutes` / `batchWords` in the `analysis` section of `.dsh-english/config.json`; `enabled: false` does not block the manual **Analyze senses** button or the tool action.
+
 **Privacy.**
-No telemetry. Transcripts, the wordbook and the cache are plain files in your workspace. The HTTP endpoint listens on loopback only, accepts same-origin requests only, and requires a custom request header.
+No telemetry. Transcripts, the wordbook and the cache are plain files in your workspace. The HTTP endpoint listens on loopback only, requires a custom request header, and rejects a non-local `Origin` when the browser sends one.
 
 **Uninstall / switch source.**
 The desktop plugin row is owned by the Electron profile: use **Remove** then **Add** in the plugin page instead of editing the manifest by hand. Removing the plugin keeps your workspace data.
@@ -224,14 +261,14 @@ The desktop plugin row is owned by the Electron profile: use **Remove** then **A
 
 | Path | Purpose |
 |---|---|
-| `index.js` | Plugin entry: `name` / `inject` / `apply(ctx)`, assembly only (~17 lines) |
-| `host/` | Host half, 12 modules: `api` / `asr` / `config` / `env` / `json-store` / `lookup` / `paths` / `pdf` / `text` / `tools` / `transcript` / `vocab` |
+| `index.js` | Plugin entry: `name` / `inject` / `apply(ctx)`, assembly only (~22 lines) |
+| `host/` | Host half, 15 modules: `analysis` / `api` / `asr` / `config` / `env` / `json-store` / `lookup` / `paths` / `pdf` / `recall` / `senses` / `text` / `tools` / `transcript` / `vocab` |
 | `client.js` | Client half: single-file `window.__ModuleLoader__.load` bundle (§0–§9 partitions) |
 | `cordis.patch.yml` | Bundle patch (insert id `english-practice`) |
 | `locale/{zh,en}.json` | Plugin-page metadata (title / description) |
 | `icon.svg` | Plugin-page icon |
 | `assets/bailian-cli/` | README screenshots (8 PNGs) |
-| `tests/` | `node --test` unit + contract + integration tests (10 `*.test.mjs`) |
+| `tests/` | `node --test` unit + contract + integration tests (14 `*.test.mjs`) |
 | `AGENTS.md` | Maintainer contract: architecture, frozen interfaces, release flow |
 | `README.md` / `README.zh.md` | English / Chinese docs |
 | `CHANGELOG.md` | Changelog (Keep a Changelog) |
@@ -243,13 +280,13 @@ Published npm contents follow `package.json#files`: `index.js`, `host/`, `client
 
 ## Development notes
 
-- **Zero build**: the Host half is Node ESM (`index.js` assembles, `host/` holds the 12 modules), the Client half is a hand-written single-file `client.js` (`window.__ModuleLoader__.load` bundle, §0–§9 partitions). No TypeScript, no bundler, no runtime dependencies.
+- **Zero build**: the Host half is Node ESM (`index.js` assembles, `host/` holds the 15 modules), the Client half is a hand-written single-file `client.js` (`window.__ModuleLoader__.load` bundle, §0–§9 partitions). No TypeScript, no bundler, no runtime dependencies.
 - **Host changes**: restart DSH (quit and reopen the desktop app; restart the process for CLI / `dsh web`).
 - **Client changes**: just refresh the page (the bundle is resolved by package and re-fetched when its content changes).
 - **`package.json`'s `dsh` manifest or `cordis.patch.yml` changes**: restart DSH.
-- **Checks**: `npm run check` (`node --check index.js` + `node --check client.js` + `node --test`, which auto-discovers `tests/*.test.mjs`); requires **Node 20+**. Currently 10 test files (unit + contract + integration), all green.
-- **Local development**: `package.json` keeps `@local/dsh-english-practice` during development and the desktop profile installs it via `link:`; the release rename unifies `dsh-increasing-my-english` (`package.json`, `cordis.patch.yml`, `client.js` PKG and loader id, locale meta).
-- **Stable identifiers (do not rename)**: `.dsh-english/`, `/dsh-english/api`, the `x-english-practice` header, tool names `english_transcribe` / `english_vocab`, tab kind `english-reader`, locale NS `englishPractice`, patch row id `english-practice`.
+- **Checks**: `npm run check` (`node --check index.js` + `node --check client.js` + `node --test`, which auto-discovers `tests/*.test.mjs`); requires **Node 20+**. Currently 14 test files (unit + contract + integration), all green.
+- **Local development**: the package is `dsh-increasing-my-english`; the desktop profile installs this checkout via `link:`. A rename must update `package.json`, `cordis.patch.yml`, `client.js` PKG and loader id, and the locale meta.
+- **Stable identifiers (do not rename)**: `.dsh-english/`, `/dsh-english/api`, the `x-english-practice` header, tool names `english_transcribe` / `english_vocab`, tab kind `english-reader`, locale NS `englishPractice`, patch row id `english-practice`, and the recall data file `.dsh-english/recall.json` (`version: 1`).
 
 ## License
 
