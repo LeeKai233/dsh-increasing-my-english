@@ -2,7 +2,7 @@
   "schemaVersion": "1.1",
   "id": "dsh-increasing-my-english",
   "name": "dsh-increasing-my-english",
-  "version": "0.3.0",
+  "version": "0.2.1",
   "description": {
     "zh": "把播客录音转成分角色文稿在右侧边栏精读，Ctrl 划词查词并存进带音标、释义、词形与词源的生词本；插件空闲时在后台对比全部文稿自动补全单词的其它义项，再按掌握度做每日背记复习，并用只读关系图展示文稿与单词、单词与单词之间的联系。顶部「跨项目」开关可把当前项目设为共享库，让其它项目共用同一套文稿、生词本与背记进度。",
     "en": "Speaker-diarized podcast transcripts in the right sidebar, Ctrl word lookup, a wordbook with phonetics, meanings, word forms and etymology that fills in the word's other senses from every transcript while idle, spaced daily review, and a read-only graph of how transcripts and words connect. A top-bar Shared switch makes one project the shared library for every project."

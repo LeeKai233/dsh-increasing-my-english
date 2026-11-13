@@ -1,6 +1,6 @@
 {
   "name": "dsh-increasing-my-english",
-  "version": "0.3.0",
+  "version": "0.2.1",
   "type": "module",
   "description": "English intensive reading for DSH: speaker-diarized podcast transcripts, Ctrl word lookup, a wordbook with phonetics, meanings, word forms and etymology that fills in a word's other senses from every transcript while idle, a spaced-review mode with daily rounds, a read-only graph of how transcripts and words connect, and an optional shared library that lets every project use one set of materials.",
   "keywords": [
@@ -64,8 +64,6 @@
       "platform": "web",
       "immediately": true,
       "inject": [
-        "@deepseek-ai/dsh-api-remotes",
-        "@deepseek-ai/dsh-api-workspace-files",
         "@deepseek-ai/dsh-client-locale",
         "@deepseek-ai/dsh-client-ui-sidebar-right",
         "@deepseek-ai/dsh-client-ui-conversation"

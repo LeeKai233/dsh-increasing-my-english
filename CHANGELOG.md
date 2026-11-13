@@ -5,7 +5,7 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.3.0] - 2026-11-13
+## [0.2.1] - 2026-11-13
 
 ### Added
 
@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - 有效根概念：开启共享时所有文稿/生词/背记/图谱/转写/PDF/配置都走共享库目录；关闭时走当前项目。后台多义分析按有效根去重，切换共享库时清空调度状态。
 - 客户端读取文稿、生词本 JSON 与 PDF 页图不再走会话工作区的 `workspaceFiles`，改走插件自己的 HTTP 读取（`transcripts.read` / `vocab.read` / `pdf.page`），因此共享库在别的项目时也能正常读取；PDF 原文件「DSH 预览」只在共享库所在项目显示，页图阅读不受影响。
+- 客户端不再声明已用不到的 `remote` / `remote.workspaceFiles` 依赖；`package.json#dsh.client.inject` 同步移除 `@deepseek-ai/dsh-api-remotes` 与 `@deepseek-ai/dsh-api-workspace-files`。
 - 面板顶部 4 秒轮询同时同步共享库开关状态；共享库不可用时在工具栏下方显示可关闭的警告条。
 
 ### Security
@@ -87,8 +88,8 @@ First public release of the DSH "English Practice" plugin (npm package `dsh-incr
 - 路径与文件名加固：`..` 规范化 + 工作区包含检查，拒绝 Windows 保留名与尾点/尾空格，文件名用 `wx` 原子占位消除 TOCTOU。
 - HTTP 网关仅回环地址、`Origin`/`Host` 同源校验 + 自定义请求头，限流、请求体上限与对外脱敏文案。
 
-[Unreleased]: https://github.com/LeeKai233/dsh-increasing-my-english/compare/v0.3.0...HEAD
-[0.3.0]: https://github.com/LeeKai233/dsh-increasing-my-english/compare/v0.2.0...v0.3.0
+[Unreleased]: https://github.com/LeeKai233/dsh-increasing-my-english/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/LeeKai233/dsh-increasing-my-english/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/LeeKai233/dsh-increasing-my-english/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/LeeKai233/dsh-increasing-my-english/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/LeeKai233/dsh-increasing-my-english/releases/tag/v0.1.0

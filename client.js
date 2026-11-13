@@ -5874,7 +5874,7 @@ window.__ModuleLoader__.load({
     // §9 注册（locale / sidebarRightTabs / slots / 会话头按钮）
     // 符号表：inject — 依赖声明；apply(ctx) — 与既有注册代码语义完全一致的组装入口
     // ═══════════════════════════════════════════════════════════════════
-    const inject = ['slots', 'locale', 'remote', 'remote.workspaceFiles', 'sidebarRight', 'sidebarRightTabs', 'uiWorkspace']
+    const inject = ['slots', 'locale', 'sidebarRight', 'sidebarRightTabs', 'uiWorkspace']
 
     function apply(ctx) {
       ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'english-practice: dictionaries')
