@@ -14,6 +14,7 @@ import { createJobManager } from './asr.js'
 import { createConfigLoader, DEFAULT_CONFIG, resolveExecutables } from './config.js'
 import { createEnvService, runCommand as defaultRunCommand } from './env.js'
 import { createGraphService } from './graph.js'
+import { createLibraryService } from './library.js'
 import { createWorkspaceStore } from './json-store.js'
 import { createLookupService } from './lookup.js'
 import {
@@ -24,7 +25,7 @@ import {
   resolveAnyPath,
   resolveInWorkspace,
 } from './paths.js'
-import { renderPdfPages } from './pdf.js'
+import { readPdfPage, renderPdfPages } from './pdf.js'
 import { createRecallService } from './recall.js'
 import { AUDIO_EXTENSIONS, createTranscriptService, MAX_IMPORT_PDF_BASE64_CHARS, MAX_IMPORT_TEXT_CHARS } from './transcript.js'
 import { createVocabService } from './vocab.js'
@@ -52,6 +53,11 @@ export const ACTION_NAMES = Object.freeze([
   'transcribe',
   'job',
   'env.check',
+  'library.status',
+  'library.set',
+  'transcripts.read',
+  'vocab.read',
+  'pdf.page',
 ])
 
 const ASR_MODELS = [
@@ -89,6 +95,8 @@ function statusForCode(code) {
     'session/unavailable': 409,
     'http/rate-limited': 429,
     'internal': 500,
+    'library/busy': 409,
+    'library/settings-failed': 500,
   }
   if (exact[code] !== undefined) return exact[code]
   if (code.endsWith('/not-found')) return 404
@@ -112,12 +120,29 @@ export function createHost(ctx, overrides = {}) {
   const runCommand = overrides.runCommand ?? defaultRunCommand
   const env = overrides.env ?? process.env
   const configLoader = createConfigLoader({ store })
+  const library = createLibraryService({
+    store,
+    env,
+    settingsPath: overrides.librarySettingsPath,
+    loadConfig: (root) => configLoader.load(root),
+  })
   const envService = createEnvService({ runCommand, env })
   const lookup = createLookupService({ ctx, store, runCommand, env })
   const vocab = createVocabService({ store, lookup })
   const recall = createRecallService({ store, vocab })
   const graph = createGraphService({ store, vocab, recall })
-  const analysis = createAnalysisService({ ctx, store, vocab, lookup, configLoader })
+  const analysis = createAnalysisService({
+    ctx,
+    store,
+    vocab,
+    lookup,
+    configLoader,
+    resolveRoot: async (workspaceRoot) => {
+      const resolved = await library.resolveRoot(workspaceRoot)
+      if (resolved.enabled && resolved.problem !== undefined) return undefined
+      return resolved.root
+    },
+  })
   const transcripts = createTranscriptService({
     store,
     renderPdf: (args) => renderPdfPages({ ...args, executables: resolveExecutables(env).executables, runCommand }),
@@ -160,11 +185,16 @@ export function createHost(ctx, overrides = {}) {
   }
 
   async function workspaceConfig(agent, signal) {
-    const root = await workspaceOf(agent, signal)
-    analysis.noteActivity(root)
-    const loaded = await configLoader.load(root)
+    const workspaceRoot = await workspaceOf(agent, signal)
+    const shared = await library.resolveRoot(workspaceRoot)
+    if (shared.enabled && shared.problem !== undefined) {
+      fail('library/unavailable', '共享库目录不可用', { path: shared.root })
+    }
+    analysis.noteActivity(workspaceRoot, shared.root)
+    const loaded = await configLoader.load(shared.root)
     notifyToolTimeout(loaded.config.asr.toolTimeoutMinutes)
-    return { root, config: loaded.config, warnings: loaded.warnings }
+    const warnings = [...(shared.warnings ?? []), ...(loaded.warnings ?? [])]
+    return { root: shared.root, workspaceRoot, shared, config: loaded.config, warnings }
   }
 
   async function startTranscription(agent, input, signal) {
@@ -223,10 +253,24 @@ export function createHost(ctx, overrides = {}) {
   }
 
   async function envCheck(agent, signal) {
-    const root = await workspaceOf(agent, signal)
-    const loaded = await configLoader.load(root)
-    notifyToolTimeout(loaded.config.asr.toolTimeoutMinutes)
-    return envService.check({ root, config: loaded.config, warnings: loaded.warnings })
+    const workspaceRoot = await workspaceOf(agent, signal)
+    const projectLoaded = await configLoader.load(workspaceRoot)
+    notifyToolTimeout(projectLoaded.config.asr.toolTimeoutMinutes)
+    const libraryStatus = await library.status(workspaceRoot, { probe: true })
+    if (libraryStatus.enabled && libraryStatus.exists) {
+      try {
+        const sharedLoaded = await configLoader.load(libraryStatus.root)
+        notifyToolTimeout(sharedLoaded.config.asr.toolTimeoutMinutes)
+      } catch {
+        // status() already reports the read problem in warnings
+      }
+    }
+    const value = await envService.check({
+      root: workspaceRoot,
+      config: projectLoaded.config,
+      warnings: [...projectLoaded.warnings, ...libraryStatus.warnings],
+    })
+    return { ...value, library: libraryStatus }
   }
 
   const handlers = {
@@ -285,6 +329,30 @@ export function createHost(ctx, overrides = {}) {
     'vocab.analyze': async (agent, payload, signal) => {
       const { root, config } = await workspaceConfig(agent, signal)
       return analysis.analyzeStale(root, config, { id: payload?.id, limit: payload?.limit }, signal)
+    },
+    'library.status': async (agent) => {
+      const workspaceRoot = await workspaceOf(agent)
+      return library.status(workspaceRoot)
+    },
+    'library.set': async (agent, payload) => {
+      if (typeof payload?.enabled !== 'boolean') fail('library/invalid', 'enabled 必须是布尔值')
+      const workspaceRoot = await workspaceOf(agent)
+      if (jobs.activeCount() > 0) fail('library/busy', '有转写任务正在进行，完成后再切换共享库')
+      const value = await library.set(payload.enabled, workspaceRoot)
+      analysis.reset()
+      return value
+    },
+    'transcripts.read': async (agent, payload, signal) => {
+      const { root, config } = await workspaceConfig(agent, signal)
+      return transcripts.read(root, config, payload)
+    },
+    'vocab.read': async (agent, payload, signal) => {
+      const { root } = await workspaceConfig(agent, signal)
+      return vocab.readText(root)
+    },
+    'pdf.page': async (agent, payload, signal) => {
+      const { root } = await workspaceConfig(agent, signal)
+      return readPdfPage(root, payload?.path)
     },
     'transcribe': (agent, payload, signal) => startTranscription(agent, payload, signal),
     'job': async (agent, payload, signal) => {
@@ -446,6 +514,7 @@ export function createHost(ctx, overrides = {}) {
     ctx,
     store,
     configLoader,
+    library,
     workspaceOf,
     workspaceConfig,
     lookup,

@@ -2,10 +2,10 @@
   "schemaVersion": "1.1",
   "id": "dsh-increasing-my-english",
   "name": "dsh-increasing-my-english",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": {
-    "zh": "把播客录音转成分角色文稿在右侧边栏精读，Ctrl 划词查词并存进带音标、释义、词形与词源的生词本；插件空闲时在后台对比全部文稿自动补全单词的其它义项，再按掌握度做每日背记复习，并用只读关系图展示文稿与单词、单词与单词之间的联系。",
-    "en": "Speaker-diarized podcast transcripts in the right sidebar, Ctrl word lookup, a wordbook with phonetics, meanings, word forms and etymology that fills in the word's other senses from every transcript while idle, spaced daily review, and a read-only graph of how transcripts and words connect."
+    "zh": "把播客录音转成分角色文稿在右侧边栏精读，Ctrl 划词查词并存进带音标、释义、词形与词源的生词本；插件空闲时在后台对比全部文稿自动补全单词的其它义项，再按掌握度做每日背记复习，并用只读关系图展示文稿与单词、单词与单词之间的联系。顶部「跨项目」开关可把当前项目设为共享库，让其它项目共用同一套文稿、生词本与背记进度。",
+    "en": "Speaker-diarized podcast transcripts in the right sidebar, Ctrl word lookup, a wordbook with phonetics, meanings, word forms and etymology that fills in the word's other senses from every transcript while idle, spaced daily review, and a read-only graph of how transcripts and words connect. A top-bar Shared switch makes one project the shared library for every project."
   },
   "category": "other",
   "keywords": [
@@ -29,12 +29,13 @@
       "多义分析只在语料或词条变化后重跑，可在配置里关闭或调整空闲阈值与批量",
       "按掌握度做每日背记：到期词 + 新词固定一轮，英→中 / 中→英 / 混合主动回忆",
       "用只读关系图展示文稿↔单词、单词↔单词的联系（出现/来源、同句共现、同根同族、近义）",
-      "导入 PDF/文本并支持划词查词与环境自检"
+      "导入 PDF/文本并支持划词查词与环境自检",
+      "顶部「跨项目」开关：把一个项目设为共享库，其它项目共用其文稿、生词本、背记进度、录音与 PDF"
     ],
     "doesNot": [
       "不下载、剪辑、托管或播放音频，不替代播放器",
       "不做口语评测、考试题库、云端同步或账号体系",
-      "不收集遥测，也不修改工作区以外由插件管理的数据"
+      "不收集遥测；除用户主动开启的共享库外，不修改工作区以外的项目数据"
     ]
   },
   "install": {

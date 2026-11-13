@@ -11,7 +11,7 @@ window.__ModuleLoader__.load({
     // ═══════════════════════════════════════════════════════════════════
     // §0 常量 / PKG / ID
     // 符号表：
-    //   PKG / NS / KIND / ID / REL — 稳定标识（不改名，用户数据与既有行为依赖）
+    //   PKG / NS / KIND / ID — 稳定标识（不改名，用户数据与既有行为依赖）
     //   API_PATH / API_HEADER     — 唯一 HTTP 出口地址与同源校验头
     //   MIN_FONT / MAX_FONT       — 正文字号偏好边界
     //   MIN_ZOOM / MAX_ZOOM / ZOOM_STEP — PDF 缩放偏好
@@ -24,11 +24,6 @@ window.__ModuleLoader__.load({
     const NS = 'englishPractice'
     const KIND = 'english-reader'
     const ID = 'english-practice'
-    const REL = {
-      transcripts: 'transcripts',
-      vocab: 'vocab/vocabulary.json',
-    }
-
     const API_PATH = '/dsh-english/api'
     const API_HEADER = { 'content-type': 'application/json', 'x-english-practice': '1' }
 
@@ -118,6 +113,15 @@ window.__ModuleLoader__.load({
       'mode.vocab': '生词本',
       'mode.recall': '背记',
       'mode.graph': '图谱',
+      'library.switch': '跨项目',
+      'library.tipOff': '开启后本项目成为共享库，所有项目共用本项目的文稿与生词本',
+      'library.tipOn': '共享库：{path}；点击关闭',
+      'library.tipForeign': '当前项目不是共享库，数据来自 {path}',
+      'library.loading': '正在读取共享库设置…',
+      'library.missing': '共享库不可用：{path}',
+      'library.disable': '关闭共享',
+      'library.onToast': '已开启跨项目共享：{path}',
+      'library.offToast': '已关闭跨项目共享，已回到本项目数据',
       'common.refresh': '刷新',
       'common.copy': '复制',
       'common.copied': '已复制',
@@ -378,12 +382,17 @@ window.__ModuleLoader__.load({
       'error.jobFailed': '转写任务失败',
       'error.recallInvalid': '背记数据无效',
       'error.recallNotFound': '这个词已不在生词本中',
+      'error.libraryInvalid': '共享库设置无效',
+      'error.libraryUnavailable': '共享库目录不可用：{path}',
+      'error.libraryBusy': '有转写任务正在进行，完成后再切换共享库',
+      'error.librarySettingsFailed': '无法保存共享库设置，请检查用户目录是否可写',
       'env.title': '环境自检',
       'env.check': '重新检测',
       'env.checking': '检测中…',
       'env.bl': '百炼 CLI (bl)',
       'env.poppler': 'PDF 工具 (Poppler)',
       'env.workspace': '工作区',
+      'env.library': '共享库',
       'env.ok': '正常',
       'env.missing': '未安装',
       'env.authenticated': '已登录',
@@ -411,6 +420,15 @@ window.__ModuleLoader__.load({
       'mode.vocab': 'Wordbook',
       'mode.recall': 'Review',
       'mode.graph': 'Graph',
+      'library.switch': 'Shared',
+      'library.tipOff': 'Turn this on to make this project the shared library used by every project',
+      'library.tipOn': 'Shared library: {path}. Click to turn off',
+      'library.tipForeign': 'This project is not the shared library; data comes from {path}',
+      'library.loading': 'Reading the shared-library setting…',
+      'library.missing': 'Shared library unavailable: {path}',
+      'library.disable': 'Turn off sharing',
+      'library.onToast': 'Cross-project sharing is on: {path}',
+      'library.offToast': 'Cross-project sharing is off — back to this project’s data',
       'common.refresh': 'Refresh',
       'common.copy': 'Copy',
       'common.copied': 'Copied',
@@ -671,12 +689,17 @@ window.__ModuleLoader__.load({
       'error.jobFailed': 'The transcription job failed',
       'error.recallInvalid': 'Invalid review data',
       'error.recallNotFound': 'This word is no longer in the wordbook',
+      'error.libraryInvalid': 'Invalid shared-library setting',
+      'error.libraryUnavailable': 'The shared library is unavailable: {path}',
+      'error.libraryBusy': 'A transcription is running — switch the shared library after it finishes',
+      'error.librarySettingsFailed': 'Could not save the shared-library setting. Check that your home directory is writable.',
       'env.title': 'Environment check',
       'env.check': 'Check again',
       'env.checking': 'Checking…',
       'env.bl': 'Bailian CLI (bl)',
       'env.poppler': 'PDF tool (Poppler)',
       'env.workspace': 'Workspace',
+      'env.library': 'Shared library',
       'env.ok': 'Ready',
       'env.missing': 'Missing',
       'env.authenticated': 'signed in',
@@ -720,6 +743,12 @@ window.__ModuleLoader__.load({
       '.egl-tab.is-on{background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);box-shadow:0 0 0 .5px var(--dsw-alias-border-l1)}',
       '.egl-bar-right{margin-left:auto;display:flex;align-items:center;gap:6px;min-width:0}',
       '.egl-select{max-width:170px;height:26px;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:var(--dsw-alias-bg-layer-1);color:inherit;font:inherit;padding:0 6px}',
+      '.egl-switch{display:inline-flex;align-items:center;gap:5px;flex:none;font-size:12px;color:var(--dsw-alias-label-secondary);cursor:pointer;user-select:none}',
+      '.egl-switch input{width:14px;height:14px;margin:0;accent-color:var(--dsw-alias-brand-primary);cursor:pointer}',
+      '.egl-switch.is-on{color:var(--dsw-alias-brand-primary)}',
+      '.egl-switch.is-busy{opacity:.55;cursor:default}',
+      '.egl-switch-warn{color:var(--dsw-alias-state-warn-primary);font-weight:700}',
+      '.egl-library-banner{margin:8px 10px 0}',
       '.egl-btn{height:26px;padding:0 10px;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font:inherit;cursor:pointer;white-space:nowrap}',
       '.egl-btn:hover:not(:disabled){background:var(--dsw-alias-bg-layer-2)}',
       '.egl-btn:disabled{opacity:.55;cursor:default}',
@@ -1816,11 +1845,14 @@ window.__ModuleLoader__.load({
       const bl = env.bl && typeof env.bl === 'object' ? env.bl : {}
       const pdf = env.pdf && typeof env.pdf === 'object' ? env.pdf : {}
       const workspace = env.workspace && typeof env.workspace === 'object' ? env.workspace : {}
+      const library = env.library && typeof env.library === 'object' ? env.library : {}
       if (bl.present !== true) return true
       if (bl.authenticated === false) return true
       if (pdf.present !== true) return true
       if (workspace.writable === false) return true
       if (workspace.transcripts === false || workspace.vocab === false || workspace.recordings === false) return true
+      if (library.enabled === true && library.exists !== true) return true
+      if (library.enabled === true && library.writable === false) return true
       return false
     }
 
@@ -2077,6 +2109,14 @@ window.__ModuleLoader__.load({
       return undefined
     }
 
+    /** Decode a base64 payload from the plugin gateway into image bytes. */
+    function base64ToBytes(text) {
+      const binary = atob(String(text ?? ''))
+      const bytes = new Uint8Array(binary.length)
+      for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index)
+      return bytes
+    }
+
     function cleanSelectionText(text) {
       return String(text ?? '').trim().replace(/^[\s"'“”‘’()[\]{}.,;:!?…—–-]+|[\s"'“”‘’()[\]{}.,;:!?…—–-]+$/g, '')
     }
@@ -2098,7 +2138,7 @@ window.__ModuleLoader__.load({
 
 
     // ═══════════════════════════════════════════════════════════════════
-    // §4 api 网关（唯一 fetch / workspaceFiles / abort 出口）
+    // §4 api 网关（唯一 fetch / abort 出口）
     // 符号表：
     //   ApiError / abortError / isAbortError / isApiError — 统一错误（code + 本地化 message）
     //   ERROR_MESSAGE_KEYS — AGENTS.md 错误码 → i18n 键；查不到才回退宿主 message
@@ -2107,9 +2147,9 @@ window.__ModuleLoader__.load({
     //       （import 300s = Host 侧 pdftoppm 180s + pdftotext 120s 的最坏组合；两边同步改，避免漂移）
     //   API_DEDUPE_ACTIONS — 只读 action 允许 in-flight 去重
     //   linkSignal / raceSignal — AbortSignal 组合原语（调用方取消不杀共享请求）
-    //   createApi(ctx, sessionId, t, options) — 单会话网关：call / readAll / readBytes / 各 action 方法
+    //   createApi(ctx, sessionId, t, options) — 单会话网关：call / readBytes / 各 action 方法
     //   apiFor(ctx, sessionId, t) — 按 sessionId 缓存；引用计数归零后 dispose 并清缓存
-    // 约束：所有 HTTP 只能经 call() 发出；workspaceFiles 读取共用同一 lifetime signal
+    // 约束：所有 HTTP 只能经 call() 发出；读取也走插件 action，不再直接访问 workspaceFiles
     // ═══════════════════════════════════════════════════════════════════
     // 超时预算与 Host 网关一致：客户端预算低于 Host 会让长任务（尤其 PDF 导入）被提前掐断，
     // 高于 Host 则永远等不到响应。Host 侧 import 预算 = pdftoppm 180s + pdftotext 120s = 300s，
@@ -2134,6 +2174,8 @@ window.__ModuleLoader__.load({
       'env.check',
       'recall.overview',
       'graph.overview',
+      'transcripts.read',
+      'pdf.page',
     ])
     const ERROR_MESSAGE_KEYS = {
       'http/method': 'error.httpMethod',
@@ -2169,6 +2211,10 @@ window.__ModuleLoader__.load({
       'job/failed': 'error.jobFailed',
       'recall/invalid': 'error.recallInvalid',
       'recall/not-found': 'error.recallNotFound',
+      'library/invalid': 'error.libraryInvalid',
+      'library/unavailable': 'error.libraryUnavailable',
+      'library/busy': 'error.libraryBusy',
+      'library/settings-failed': 'error.librarySettingsFailed',
     }
     const HTTP_STATUS_CODES = {
       403: 'http/forbidden',
@@ -2348,59 +2394,14 @@ window.__ModuleLoader__.load({
         return raceSignal(shared, signal)
       }
 
-      function readAll(path, requestOptions = {}) {
-        const signal = requestOptions.signal
-        if (disposed || lifetime.signal.aborted === true) return Promise.reject(abortError())
-        const key = 'read|' + path
-        let shared = inflight.get(key)
-        if (shared === undefined) {
-          const created = (async () => {
-            let offset = 1
-            const parts = []
-            for (let page = 0; page < 60; page += 1) {
-              if (disposed || lifetime.signal.aborted === true) throw abortError()
-              const result = await ctx.remote.workspaceFiles.read(sessionId, path, { offset, limit: 4000 }, lifetime.signal)
-              if (!result || result.ok !== true) {
-                const failure = result && result.error && typeof result.error === 'object' ? result.error : {}
-                if (failure.code === 'workspace-file/not-found') return undefined
-                throw new ApiError(
-                  typeof failure.code === 'string' ? failure.code : 'internal',
-                  localizedApiMessage(t, failure.code, undefined, failure.message)
-                )
-              }
-              const content = result.value && typeof result.value === 'object' ? result.value : {}
-              parts.push(typeof content.text === 'string' ? content.text : '')
-              if (content.eof === true) break
-              if (!content.lines) break
-              offset += content.lines
-            }
-            return parts.join('\n')
-          })()
-          shared = created
-          const cleanup = () => {
-            if (inflight.get(key) === created) inflight.delete(key)
-          }
-          created.then(cleanup, cleanup)
-          inflight.set(key, created)
-        }
-        return raceSignal(shared, signal)
-      }
-
+      /** Read one rendered PDF page through the plugin gateway (works in a shared library). */
       function readBytes(path, requestOptions = {}) {
-        const signal = requestOptions.signal
-        if (disposed || lifetime.signal.aborted === true) return Promise.reject(abortError())
-        const task = (async () => {
-          const result = await ctx.remote.workspaceFiles.readBytes(sessionId, path, {}, lifetime.signal)
-          if (!result || result.ok !== true) {
-            const failure = result && result.error && typeof result.error === 'object' ? result.error : {}
-            throw new ApiError(
-              typeof failure.code === 'string' ? failure.code : 'internal',
-              localizedApiMessage(t, failure.code, undefined, failure.message)
-            )
+        return call('pdf.page', { path }, { signal: requestOptions.signal }).then((value) => {
+          if (!value || typeof value.data !== 'string' || value.data === '') {
+            throw new ApiError('path/invalid', t('error.pathInvalid'))
           }
-          return result.value && typeof result.value === 'object' ? result.value.data : undefined
-        })()
-        return raceSignal(task, signal)
+          return base64ToBytes(value.data)
+        })
       }
 
       const api = {
@@ -2446,11 +2447,13 @@ window.__ModuleLoader__.load({
         recallGrade: (payload, signal) => call('recall.grade', payload, { signal, dedupe: false }),
         recallReset: (payload, signal) => call('recall.reset', payload, { signal, dedupe: false }),
         graphOverview: (signal) => call('graph.overview', {}, { signal }),
+        libraryStatus: (signal) => call('library.status', {}, { signal }),
+        librarySet: (payload, signal) => call('library.set', payload, { signal, dedupe: false }),
 
         pickDirectory: () => ctx.uiWorkspace.pickDirectory(),
         openFile: (path) => ctx.sidebarRight.openResource(fileResourceAddress(sessionId, path)),
-        transcriptText: (file, signal) => readAll(REL.transcripts + '/' + file, { signal }),
-        vocabText: (signal) => readAll(REL.vocab, { signal }),
+        transcriptText: (file, signal) => call('transcripts.read', { file }, { signal }).then((value) => (value && typeof value.text === 'string' ? value.text : undefined)),
+        vocabText: (signal) => call('vocab.read', {}, { signal }).then((value) => (value && typeof value.text === 'string' ? value.text : undefined)),
         readBytes: (path, signal) => readBytes(path, { signal }),
       }
       return api
@@ -3862,9 +3865,12 @@ window.__ModuleLoader__.load({
       const bl = env && typeof env.bl === 'object' && env.bl !== null ? env.bl : {}
       const pdf = env && typeof env.pdf === 'object' && env.pdf !== null ? env.pdf : {}
       const workspace = env && typeof env.workspace === 'object' && env.workspace !== null ? env.workspace : {}
+      const library = env && typeof env.library === 'object' && env.library !== null ? env.library : {}
       const blReady = checked && bl.present === true && bl.authenticated !== false
       const pdfReady = checked && pdf.present === true
       const workspaceReady = checked && workspace.writable !== false
+      const libraryEnabled = checked && library.enabled === true
+      const libraryReady = !libraryEnabled || (library.exists === true && library.writable !== false)
       const chipClass = (ready) => 'egl-env-chip' + (!checked ? '' : ready ? ' is-ok' : ' is-bad')
       const chipText = (name, ready, bad) => name + ' · ' + (!checked ? t('env.checking') : ready ? t('env.ok') : bad)
       const blBad = !checked ? t('env.checking') : bl.present !== true ? t('env.missing') : t('env.notAuthenticated')
@@ -3910,7 +3916,10 @@ window.__ModuleLoader__.load({
           h('span', { className: 'egl-env-chips' },
             h('span', { key: 'bl', className: chipClass(blReady) }, chipText('bl', blReady, blBad)),
             h('span', { key: 'pdf', className: chipClass(pdfReady) }, chipText('PDF', pdfReady, t('env.missing'))),
-            h('span', { key: 'workspace', className: chipClass(workspaceReady) }, chipText(t('env.workspace'), workspaceReady, t('env.readonly')))
+            h('span', { key: 'workspace', className: chipClass(workspaceReady) }, chipText(t('env.workspace'), workspaceReady, t('env.readonly'))),
+            libraryEnabled
+              ? h('span', { key: 'library', className: chipClass(libraryReady) }, chipText(t('env.library'), libraryReady, t('env.missing')))
+              : null
           ),
           h('span', { className: 'egl-env-chevron' }, open ? '▾' : '▸')
         ),
@@ -3929,6 +3938,20 @@ window.__ModuleLoader__.load({
                 h('span', { key: 'recordings' }, 'recordings · ' + dirStatus(workspace.recordings)),
                 h('span', { key: 'writable' }, t('env.writable') + ' · ' + dirStatus(checked ? workspace.writable : undefined))
               ),
+              libraryEnabled
+                ? h('div', null,
+                    kv('library', t('env.library'), String(library.root ?? ''), true),
+                    h('div', { className: 'egl-env-sub' },
+                      h('span', { key: 'lt' }, 'transcripts · ' + dirStatus(library.directories?.transcripts)),
+                      h('span', { key: 'lv' }, 'vocab · ' + dirStatus(library.directories?.vocab)),
+                      h('span', { key: 'lr' }, 'recordings · ' + dirStatus(library.directories?.recordings)),
+                      h('span', { key: 'lw' }, t('env.writable') + ' · ' + dirStatus(library.writable))
+                    ),
+                    library.exists === false
+                      ? h('div', { className: 'egl-err' }, t('library.missing', { path: library.root ?? '' }))
+                      : null
+                  )
+                : null,
               commands.map((item) => h(EnvCommand, {
                 key: item.command,
                 label: item.label,
@@ -4820,7 +4843,7 @@ window.__ModuleLoader__.load({
     // 关键约定：
     //   - 列表轮询 4s，数据签名不变不 setState；后台标签页与 in-flight 由 usePolling 守
     //   - 任务轮询 1.5s，只读一次终态；迟到响应被 jobTerminalRef 丢弃
-    //   - 切文稿只触发一次 workspaceFiles 读取（签名 useMemo + useTranscript）
+    //   - 切文稿只触发一次 transcripts.read 请求（签名 useMemo + useTranscript）
     //   - 首屏回到「上次打开的那一篇」（localStorage），删了才回退最新一篇
     //   - 背记只在 recall tab 拉一次 recall.overview，切走/卸载 abort；grade/reset 返回的新总览直接替换状态
     //   - 图谱只在 graph tab 拉一次 graph.overview（只读派生数据），刷新用 graphNonce；选中/范围在数据刷新后自动清理失效节点
@@ -4836,6 +4859,8 @@ window.__ModuleLoader__.load({
       const jobTerminalRef = useRef(false)
       const transcriptListSignatureRef = useRef('<init>')
       const vocabTextSignatureRef = useRef('<init>')
+      const librarySignatureRef = useRef('<init>')
+      const libraryRevisionRef = useRef(0)
 
       const [mode, setMode] = useState('reader')
       const [transcripts, setTranscripts] = useState([])
@@ -4887,6 +4912,8 @@ window.__ModuleLoader__.load({
       const [modelDefault, setModelDefault] = useState('')
       const [job, setJob] = useState(null)
       const [lastJobRequest, setLastJobRequest] = useState(null)
+      const [library, setLibrary] = useState(null)
+      const [libraryBusy, setLibraryBusy] = useState(false)
 
       // api 网关按会话共享；面板挂载 +1，卸载 -1（归零后 dispose 并 abort 在途请求）
       useEffect(() => {
@@ -4943,8 +4970,43 @@ window.__ModuleLoader__.load({
           if (isAbortError(error)) return false
           ok = false
         }
+        try {
+          const revision = libraryRevisionRef.current
+          const view = await api.libraryStatus(signal)
+          if (revision !== libraryRevisionRef.current) return ok
+          const next = view && typeof view === 'object' ? view : null
+          const signature = next === null ? '<none>' : [next.enabled, next.root, next.exists, next.usingShared].join('|')
+          if (signature !== librarySignatureRef.current) {
+            librarySignatureRef.current = signature
+            setLibrary(next)
+          }
+        } catch (error) {
+          if (isAbortError(error)) return false
+        }
         return ok
       }, [api])
+
+      const toggleLibrary = useCallback(async (next) => {
+        if (libraryBusy) return
+        setLibraryBusy(true)
+        libraryRevisionRef.current += 1
+        try {
+          const view = await api.librarySet({ enabled: next })
+          const value = view && typeof view === 'object' ? view : null
+          librarySignatureRef.current = value === null ? '<none>' : [value.enabled, value.root, value.exists, value.usingShared].join('|')
+          setLibrary(value)
+          showToast(next ? t('library.onToast', { path: value?.root ?? '' }) : t('library.offToast'))
+          setSelected(null)
+          setReloadKey((current) => current + 1)
+          setGraphNonce((current) => current + 1)
+          setRecallNonce((current) => current + 1)
+          await refreshLists()
+        } catch (error) {
+          if (!isAbortError(error)) showToast(errorMessage(error))
+        } finally {
+          setLibraryBusy(false)
+        }
+      }, [api, libraryBusy, refreshLists, showToast, t])
 
       const refresh = usePolling(refreshLists, { intervalMs: 4000, hiddenSkip: true })
 
@@ -5208,6 +5270,7 @@ window.__ModuleLoader__.load({
         return () => document.removeEventListener('mousedown', onDown, true)
       }, [popup])
 
+      // A library switch changes the recordings folder and the model config, so refetch both.
       useEffect(() => {
         if (!transcribeOpen) return undefined
         const controller = new AbortController()
@@ -5238,7 +5301,7 @@ window.__ModuleLoader__.load({
           alive = false
           controller.abort()
         }
-      }, [transcribeOpen, api])
+      }, [transcribeOpen, api, library?.enabled, library?.root])
 
       // 任务轮询：只有 jobId 存在时运行；观察到终态后停止，迟到的 running 响应被丢弃。
       const jobId = job?.jobId ?? null
@@ -5609,6 +5672,34 @@ window.__ModuleLoader__.load({
         readerBody = h(TranscriptBody, { t, transcript, segments: displaySegments, pattern: knownPattern })
       }
 
+      const libraryEnabled = library?.enabled === true
+      const libraryMissing = libraryEnabled && library?.exists === false
+      const libraryTitle = library === null
+        ? t('library.loading')
+        : libraryEnabled
+          ? (library.usingShared
+              ? t('library.tipOn', { path: library.root ?? '' })
+              : t('library.tipForeign', { path: library.root ?? '' }))
+          : t('library.tipOff')
+      const pdfPreviewAvailable = !(libraryEnabled && library?.usingShared !== true)
+      const librarySwitch = h('label', {
+        className: 'egl-switch' + (libraryEnabled ? ' is-on' : '') + (libraryBusy ? ' is-busy' : ''),
+        title: libraryTitle,
+      },
+        h('input', {
+          type: 'checkbox',
+          role: 'switch',
+          checked: libraryEnabled,
+          disabled: library === null || libraryBusy,
+          'aria-label': t('library.switch'),
+          onChange: (event) => { void toggleLibrary(event.target.checked) },
+        }),
+        h('span', null, t('library.switch')),
+        libraryMissing
+          ? h('span', { className: 'egl-switch-warn', title: t('library.missing', { path: library.root ?? '' }) }, '!')
+          : null
+      )
+
       const headVisible = transcript !== null && transcriptError === ''
       const headRow = headVisible
         ? h('div', { className: 'egl-transcript-head' },
@@ -5621,7 +5712,7 @@ window.__ModuleLoader__.load({
                   onClick: () => { void mergeCurrent() },
                 }, t('reader.merge'))
               : null,
-            transcript.pdf === true && typeof transcript.pdfPath === 'string'
+            transcript.pdf === true && typeof transcript.pdfPath === 'string' && pdfPreviewAvailable
               ? h('button', {
                   type: 'button',
                   className: 'egl-btn egl-ghost',
@@ -5746,6 +5837,7 @@ window.__ModuleLoader__.load({
               }, transcripts.map((item) => h('option', { key: item.file, value: item.file }, item.title)))
             : null,
           h('div', { className: 'egl-bar-right' },
+            librarySwitch,
             mode === 'reader'
               ? h(React.Fragment, null,
                   h('button', { type: 'button', className: 'egl-btn', onClick: () => setTranscribeOpen((value) => !value) }, t('reader.transcribe')),
@@ -5758,6 +5850,12 @@ window.__ModuleLoader__.load({
                   : h('button', { type: 'button', className: 'egl-btn', disabled: graphLoading, onClick: refreshGraph }, t('graph.refresh'))
           )
         ),
+        libraryMissing
+          ? h('div', { className: 'egl-banner egl-library-banner' },
+              h('div', { className: 'egl-banner-text' }, t('library.missing', { path: library.root ?? '' })),
+              h('button', { type: 'button', className: 'egl-btn', disabled: libraryBusy, onClick: () => { void toggleLibrary(false) } }, t('library.disable'))
+            )
+          : null,
         apiError !== ''
           ? h('div', { className: 'egl-job is-failed', style: { margin: '8px 10px 0' } }, t('error.withDetail', { message: apiError }))
           : null,

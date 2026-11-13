@@ -71,6 +71,17 @@ const REQUIRED_ANALYSIS_KEYS = [
   'toast.analyzed', 'toast.analyzeSkipped', 'toast.analyzeFailed', 'error.analysisDisabled',
 ]
 
+// Spec: the cross-project shared-library switch must ship these keys in BOTH
+// dictionaries. The set-equality test keeps zh/en in sync; this list also
+// catches a key that was dropped from both languages by accident.
+const REQUIRED_LIBRARY_KEYS = [
+  'library.switch', 'library.tipOff', 'library.tipOn', 'library.tipForeign',
+  'library.loading', 'library.missing', 'library.disable',
+  'library.onToast', 'library.offToast', 'env.library',
+  'error.libraryInvalid', 'error.libraryUnavailable', 'error.libraryBusy',
+  'error.librarySettingsFailed',
+]
+
 // Spec: the graph (图谱) view must ship these keys in BOTH dictionaries. The
 // set-equality test keeps zh/en in sync; this list also catches a key that was
 // dropped from both languages by accident.
@@ -145,6 +156,10 @@ test('client.js zh / en i18n dictionaries have exactly the same keys', async () 
     assert.ok(en.includes(key), 'missing en key: ' + key)
   }
   for (const key of REQUIRED_GRAPH_KEYS) {
+    assert.ok(zh.includes(key), 'missing zh key: ' + key)
+    assert.ok(en.includes(key), 'missing en key: ' + key)
+  }
+  for (const key of REQUIRED_LIBRARY_KEYS) {
     assert.ok(zh.includes(key), 'missing zh key: ' + key)
     assert.ok(en.includes(key), 'missing en key: ' + key)
   }

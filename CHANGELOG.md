@@ -5,6 +5,26 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-11-13
+
+### Added
+
+- 顶部工具栏新增「**跨项目**」开关（不新增视图）：打开后当前项目成为**共享库**，所有项目共用它的文稿、生词本、背记进度、查词缓存、录音与 PDF 页；关闭后各项目立即回到自己的数据，不复制、不移动、不删除任何文件。换库方式为关闭后到目标项目重新打开。
+- 全局设置文件 `~/.dsh/english-practice.json`（存在 `DSH_HOME` 时以它为准，版本 1，`sharedRoot` 为绝对路径或 null）；开关只在当前会话工作区打开，不接受任意路径，共享库缺失时数据 action 返回 `library/unavailable`，开关仍可关闭。
+- 新增 HTTP action `library.status` / `library.set`、`transcripts.read` / `vocab.read` / `pdf.page`，以及错误码 `library/invalid` / `library/unavailable` / `library/busy` / `library/settings-failed`；有转写任务进行中时拒绝切换（`library/busy`，409）。
+- 新增 `host/library.js`（全局设置读取/写入、有效根解析、状态与目录探测）与 `tests/library.test.mjs`、`tests/library-integration.test.mjs`；`env.check` 新增 `library` 字段，环境自检卡显示共享库路径、目录与可写性。
+
+### Changed
+
+- 有效根概念：开启共享时所有文稿/生词/背记/图谱/转写/PDF/配置都走共享库目录；关闭时走当前项目。后台多义分析按有效根去重，切换共享库时清空调度状态。
+- 客户端读取文稿、生词本 JSON 与 PDF 页图不再走会话工作区的 `workspaceFiles`，改走插件自己的 HTTP 读取（`transcripts.read` / `vocab.read` / `pdf.page`），因此共享库在别的项目时也能正常读取；PDF 原文件「DSH 预览」只在共享库所在项目显示，页图阅读不受影响。
+- 面板顶部 4 秒轮询同时同步共享库开关状态；共享库不可用时在工具栏下方显示可关闭的警告条。
+
+### Security
+
+- 共享库路径只能由 `library.set` 从当前会话工作区写入，工作区内的 `.dsh-english/config.json` 不能重定向数据根；`pdf.page` 只允许读取 `.dsh-english/pdfs/<uuid>/page-<n>.png` 并做工作区包含校验；`transcripts.read` 继续使用文件名校验。
+- 共享库设置写入使用同一把按路径串行锁与原子写；多个 DSH 实例同时写同一共享库为 best-effort（原子写、后写覆盖）。
+
 ## [0.2.0] - 2026-11-13
 
 ### Fixed
@@ -67,7 +87,8 @@ First public release of the DSH "English Practice" plugin (npm package `dsh-incr
 - 路径与文件名加固：`..` 规范化 + 工作区包含检查，拒绝 Windows 保留名与尾点/尾空格，文件名用 `wx` 原子占位消除 TOCTOU。
 - HTTP 网关仅回环地址、`Origin`/`Host` 同源校验 + 自定义请求头，限流、请求体上限与对外脱敏文案。
 
-[Unreleased]: https://github.com/LeeKai233/dsh-increasing-my-english/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/LeeKai233/dsh-increasing-my-english/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/LeeKai233/dsh-increasing-my-english/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/LeeKai233/dsh-increasing-my-english/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/LeeKai233/dsh-increasing-my-english/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/LeeKai233/dsh-increasing-my-english/releases/tag/v0.1.0

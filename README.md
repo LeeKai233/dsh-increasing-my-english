@@ -64,6 +64,15 @@ See the illustrated steps in [README.zh.md](README.zh.md#百炼-cli-安装与登
 
 ## Features
 
+### Cross-project sharing (top-bar switch)
+
+- The panel toolbar has a **Shared** switch, off by default. Turn it on to make **the current project the shared library**: files stay in that project's folder (nothing is copied or moved), and every other project that opens the panel sees the same transcripts, wordbook, review progress, lookup cache, recordings and PDF pages.
+- Turn it off to return each project to its own data; the shared library files stay untouched. To move the library, switch it off, open the target project, and switch it on there.
+- While sharing, every project uses the shared library's `.dsh-english/config.json` (transcription model, lookup backend and other settings follow it). Switching is refused while a transcription is running; if the library folder is unavailable, data actions fail but the switch can still be turned off.
+- The setting is stored at `~/.dsh/english-practice.json` (`DSH_HOME/english-practice.json` when `DSH_HOME` is set) as `{ "version": 1, "sharedRoot": "<absolute path>" }`; deleting it turns sharing off. Multiple DSH instances writing the same library are best-effort.
+- While sharing, the **Transcribe** panel lists the shared library's `recordings/`; to transcribe audio that lives in the current project, use **Choose folder…** or paste its absolute path.
+- Keep the shared-library project in place. If its path becomes unavailable, turn the switch off to get back to the current project's data, then repair or re-create it.
+
 ### Transcribe recordings
 
 - Put audio in `recordings/` (mp3 / m4a / wav / aac / flac / ogg / opus / amr / wma / mp4 / webm).
@@ -131,7 +140,7 @@ See the illustrated steps in [README.zh.md](README.zh.md#百炼-cli-安装与登
 ### Environment check
 
 - The **Environment check** card appears when there is no transcript yet (empty state) or while the **Transcribe** panel is open (its data comes from `env.check`; nothing is probed locally). It is collapsed by default and only auto-expands once when a problem is detected; click the title to expand/collapse it manually.
-- Three status chips: `bl` (Ready / Missing / not signed in, with the version when expanded), `PDF` (Ready / Missing, i.e. Poppler), `Workspace` (Ready / not writable).
+- Status chips: `bl` (Ready / Missing / not signed in, with the version when expanded), `PDF` (Ready / Missing, i.e. Poppler), `Workspace` (Ready / not writable); when **Shared** is on, a fourth `Shared library` chip (Ready / unavailable).
 - Expanded, it shows details for `bl`, `PDF tool (Poppler)` and `Workspace`, the status of the `transcripts` / `vocab` / `recordings` directories and writability, a Notes (warnings) list, and a **Check again** button.
 - Copy-paste fixes appear only for what is missing: `bl` missing → `npm i -g bailian-cli --registry=https://registry.npmmirror.com`; `bl` not signed in → `bl auth login --console`; Poppler missing → `winget install -e --id oschwartz10612.Poppler` (Linux/macOS: `brew install poppler` / `sudo apt install poppler-utils`). Click **Check again** afterwards. Note: **Poppler only affects PDF import** — without it, transcription and lookup still work, but the check will not be all green (the `PDF` chip shows Missing).
 
@@ -150,6 +159,8 @@ See the illustrated steps in [README.zh.md](README.zh.md#百炼-cli-安装与登
   .dsh-english/recall.json        recall progress (mastery, daily rounds; cleaned up when entries are deleted)
   .dsh-english/pdfs/<uuid>/       PDF cache (source.pdf / page-XX.png / words.xml)
 ```
+
+With the **Shared** switch on, all of these directories live in the shared-library project; switch it off to use each project's own directories. The library folder is never copied or moved.
 
 The data format is frozen at `version: 1` (only optional fields may be added); the recall progress file `.dsh-english/recall.json` is a separate new data file, also at `version: 1`. Corrupt JSON is backed up as `*.corrupt-<timestamp>` and the default is used instead.
 
@@ -238,10 +249,10 @@ The legacy keys `blPath`, `import.pdfToPpmPath` and `import.pdfToTextPath` are r
 
 ## Agent tools
 
-- `english_transcribe { audio, speakers?, model?, language? }` — transcribe and wait; returns `{ok,jobId,transcript,segments,speakers,durationMs,model,warnings,state,error?}`. `audio` may be workspace-relative or absolute. Failures are actionable (install/login commands when `bl` is missing or not logged in).
+- `english_transcribe { audio, speakers?, model?, language? }` — transcribe and wait; returns `{ok,jobId,transcript,segments,speakers,durationMs,model,warnings,state,error?}`. `audio` may be relative to the current workspace or shared library, or absolute. Failures are actionable (install/login commands when `bl` is missing or not logged in).
 - `english_vocab { action, ... }` — `action` is one of `list` (defaults to pending entries) / `lookup` / `add` / `update` / `enrich` / `analyze` / `remove` / `export`. `analyze` (optional `id`) compares every transcript for the word, appends the other senses with context/source evidence and returns `{analyzed,updated,added,skipped,failed,remaining,entries}`. Without `id` one call analyses at most `analysis.batchWords` stale words (default 2); repeat while `remaining > 0`.
   - `list` defaults to pending entries; `update` lets the assistant fill phonetics/meanings/example translations itself; `enrich` re-queries word forms and etymology by id; `export` rewrites `vocab/生词本.md`.
-- The panel and the assistant share the same Host implementation: panel actions (transcript list, transcription, lookup, wordbook, …) call `POST /dsh-english/api` (loopback only with the `x-english-practice: 1` header; a browser `Origin` must be local), transcript bodies are read through the host's workspaceFiles interface, and the assistant calls the two tools above.
+- The panel and the assistant share the same Host implementation: panel actions (transcript list, transcription, lookup, wordbook, …) call `POST /dsh-english/api` (loopback only with the `x-english-practice: 1` header; a browser `Origin` must be local), transcript and wordbook bodies and PDF page images are read through plugin HTTP actions (`transcripts.read` / `vocab.read` / `pdf.page`) so they also work when the shared library lives in another project, and the assistant calls the two tools above.
 
 ## FAQ
 
@@ -264,7 +275,7 @@ Failed lookups are stored as “needs details”. Click **Fetch forms & etymolog
 By default it runs in the background after the plugin has been idle for about 3 minutes — the panel does not need to be open. You can also click **Analyze senses** on a card or ask the assistant for `action=analyze`. It uses the same backend as lookups (the current DSH model by default; Bailian text models when `lookup.backend = "bl"`), analyses only stale words, and never repeats a model call while the corpus is unchanged. Stop the background pass or tune `idleMinutes` / `batchWords` in the `analysis` section of `.dsh-english/config.json`; `enabled: false` does not block the manual **Analyze senses** button or the tool action.
 
 **Privacy.**
-No telemetry. Transcripts, the wordbook and the cache are plain files in your workspace. The HTTP endpoint listens on loopback only, requires a custom request header, and rejects a non-local `Origin` when the browser sends one.
+No telemetry. Transcripts, the wordbook and the cache are plain files in your workspace (or in the shared-library project you explicitly turned on). The HTTP endpoint listens on loopback only, requires a custom request header, and rejects a non-local `Origin` when the browser sends one. The sharing switch stores only one absolute path in `~/.dsh/english-practice.json` and uploads nothing.
 
 **Uninstall / switch source.**
 The desktop plugin row is owned by the Electron profile: use **Remove** then **Add** in the plugin page instead of editing the manifest by hand. Removing the plugin keeps your workspace data.

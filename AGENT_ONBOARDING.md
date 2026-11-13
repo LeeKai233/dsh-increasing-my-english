@@ -71,6 +71,8 @@ vocab/
 
 Do not delete or overwrite existing files. These are the plugin defaults; if `.dsh-english/config.json` exists and overrides `dirs.recordings` or `dirs.transcripts`, respect it.
 
+If the user has turned on the **Shared** switch in the panel toolbar, these directories live in the **shared-library project**, not in the current one. Do not create a second set here and do not move or delete the shared-library project.
+
 ## Step 3 — Bailian CLI
 
 Run:

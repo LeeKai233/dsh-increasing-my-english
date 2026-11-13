@@ -147,6 +147,17 @@ export function createTranscriptService(options) {
     return transcripts
   }
 
+  /** Raw transcript text for the client (works for the shared library too). */
+  async function read(root, config, input) {
+    const validated = validateBaseFileName(input?.file, { extensions: ['.json'] })
+    const path = join(transcriptDir(root, config), validated.file)
+    const info = await lstat(path).catch(() => undefined)
+    if (info === undefined || info.isSymbolicLink() || !info.isFile()) fail('transcript/not-found', '文稿不存在')
+    const text = await store.readTextFile(path, undefined)
+    if (text === undefined) fail('transcript/not-found', '文稿不存在')
+    return { text }
+  }
+
   /** Merge adjacent segments in one transcript document. */
   async function merge(root, config, input) {
     const directory = transcriptDir(root, config)
@@ -286,5 +297,5 @@ export function createTranscriptService(options) {
     return { file: validated.file, deleted: true }
   }
 
-  return { list, merge, importTranscript, remove, dropJobRecords }
+  return { list, read, merge, importTranscript, remove, dropJobRecords }
 }

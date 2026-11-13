@@ -13,7 +13,6 @@ export const TOOL_NAMES = Object.freeze(['english_transcribe', 'english_vocab'])
 
 export function registerTools(ctx, host) {
   const services = host.services
-  const workspaceOf = services.workspaceOf
   const jobs = { get: (jobId) => services.jobs.get(jobId) }
 
   async function startTranscription(agent, input, signal) {
@@ -67,14 +66,14 @@ export function registerTools(ctx, host) {
     name: 'english_transcribe',
     description:
       'Transcribe a podcast recording with speaker diarization via the Bailian `bl speech recognize` CLI, ' +
-      'then store the normalized transcript in the current workspace under transcripts/. Wait for the job to finish and return the file name together with segment and speaker counts.',
+      'then store the normalized transcript in the current workspace (or the enabled shared library) under transcripts/. Wait for the job to finish and return the file name together with segment and speaker counts.',
     parameters: {
       type: 'object',
       additionalProperties: false,
       properties: {
         audio: {
           type: 'string',
-          description: 'Audio path: relative to the session workspace (e.g. recordings/ep12.m4a) or absolute.',
+          description: 'Audio path: relative to the session workspace or shared library (e.g. recordings/ep12.m4a), or absolute.',
         },
         speakers: {
           type: 'integer',
@@ -151,7 +150,7 @@ export function registerTools(ctx, host) {
   const vocabDefinition = {
     name: 'english_vocab',
     description:
-      'Read and edit the English wordbook in the current workspace (vocab/vocabulary.json). ' +
+      'Read and edit the English wordbook in the current workspace (or the enabled shared library) at vocab/vocabulary.json. ' +
       'Actions: list (defaults to pending entries), lookup (dictionary lookup: ipa, meanings, example translation, word forms, etymology), ' +
       'add, update (fill ipa/meanings/translation/family/etymology for entries the assistant resolved itself), ' +
       'analyze (compare every transcript for the word\'s other meanings and append them to the entry), ' +
@@ -263,7 +262,8 @@ export function registerTools(ctx, host) {
           }
           case 'add': {
             const result = await vocabAdd(exec.agent, { kind: args.kind, ...(args.entry ?? {}) }, exec.signal)
-            return { ok: true, ...result, total: (await readVocab(await workspaceOf(exec.agent, exec.signal))).words.length }
+            const { root } = await services.workspaceConfig(exec.agent, exec.signal)
+            return { ok: true, ...result, total: (await readVocab(root)).words.length }
           }
           case 'update': {
             const result = await vocabUpdate(exec.agent, { entries: args.entries }, exec.signal)

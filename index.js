@@ -2,7 +2,7 @@
  * Host half of the English practice bundle — assembly only.
  *
  * The implementation lives under ./host/ (config, paths, json-store, text, pdf,
- * transcript, asr, lookup, vocab, senses, analysis, recall, graph, env, api, tools). This module only
+ * transcript, asr, lookup, vocab, senses, analysis, recall, graph, library, env, api, tools). This module only
  * declares the plugin identity/injections and wires the HTTP route + agent tools.
  */
 import { API_PATH, createHost } from './host/api.js'

@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "English intensive reading",
-    "description": "Transcribe podcast recordings by speaker, read them in the right side bar, look words up with Ctrl, keep a wordbook with phonetics, meanings, and example sentences that fills in extra senses from your transcripts while idle, review its words in short daily rounds, and open a read-only graph of how transcripts and words connect."
+    "description": "Transcribe podcast recordings by speaker, read them in the right side bar, look words up with Ctrl, keep a wordbook with phonetics, meanings, and example sentences that fills in extra senses from your transcripts while idle, review its words in short daily rounds, and open a read-only graph of how transcripts and words connect. A top-bar Shared switch can make one project the shared library for every project."
   }
 }

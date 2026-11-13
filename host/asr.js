@@ -335,5 +335,14 @@ export function createJobManager(options) {
     return jobs.get(String(jobId))
   }
 
-  return { start, status, wait, get, recover, dispose }
+  /** Number of jobs that have not settled (used to block library switches). */
+  function activeCount() {
+    let count = 0
+    for (const job of jobs.values()) {
+      if (!job.settled) count += 1
+    }
+    return count
+  }
+
+  return { start, status, wait, get, recover, activeCount, dispose }
 }

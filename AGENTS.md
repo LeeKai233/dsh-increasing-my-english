@@ -22,6 +22,9 @@ Host 半（Node）提供 agent 工具与同源 HTTP 接口，Client 半（浏览
 4. **不迁移 Typert Remote API**（需要 TS 装饰器与代码生成产物），HTTP 路由靠同源校验加固。
 5. **包名唯一**：`dsh-increasing-my-english`。改名必须同步四处：`package.json#name`、`cordis.patch.yml#name`、
    `client.js` 的 `PKG` 与 `window.__ModuleLoader__.load({ id })`（契约测试会守住）；桌面 profile 以 `link:` 安装本目录。
+6. **跨项目共享库 = 一个工作区目录 + 全局开关**：开关在面板顶部工具栏（不是新视图），打开时把当前会话工作区写成共享根，
+   之后所有项目以它为「有效根」。设置只存在用户目录的 `~/.dsh/english-practice.json`（`DSH_HOME` 优先，`version: 1`，
+   `sharedRoot` 绝对路径或 null），**不接受工作区配置或客户端传入的任意路径**；关闭只把 `sharedRoot` 置 null，不删除/复制数据。
 
 ## 目录结构（目标态）
 
@@ -31,17 +34,18 @@ host/config.js      默认配置、校验、合并
 host/paths.js       工作区路径校验、安全删除、文件名分配、DomainError/fail 领域错误原语
 host/json-store.js  原子写、损坏备份、串行写锁、vocab/cache 读写
 host/text.js        实体解码、HTML/Markdown/TeX 清洗、段落切分、义项片段合并（collapseMeanings / mergeMeaningPair，被 vocab/senses 共用）
-host/pdf.js         pdftotext -bbox 解析、行分组、PDF 渲染（poppler 预检）
-host/transcript.js  文稿归一化、合并、列表、导入、删除
+host/pdf.js         pdftotext -bbox 解析、行分组、PDF 渲染（poppler 预检）、PDF 页图读取（pdf.page）
+host/transcript.js  文稿归一化、合并、列表、读取（transcripts.read）、导入、删除
 host/asr.js         转写任务状态机、落盘、恢复、进程树取消
 host/lookup.js      查词提示词、ds/bl 后端、结果归一化、缓存、整句翻译
-host/vocab.js       词条规范化（唯一实现）、增删改查、多义分析落盘（applyAnalysis）、Markdown 导出
+host/vocab.js       词条规范化（唯一实现）、增删改查、原始 JSON 读取（vocab.read）、多义分析落盘（applyAnalysis）、Markdown 导出
 host/senses.js      多义分析纯函数：语料切句/命中、上下文收集、提示词、模型结果归一化与义项合并、语料指纹
-host/analysis.js    多义分析流水线 + 后台空闲调度（noteActivity / analyzeStale / tick），注入 vocab/lookup/configLoader
+host/analysis.js    多义分析流水线 + 后台空闲调度（noteActivity / analyzeStale / tick / reset），注入 vocab/lookup/configLoader/resolveRoot
 host/recall.js      背记：掌握度/复习间隔调度、每日轮次规划、进度读写（懒清理已删词条）
 host/graph.js       图谱：文稿↔单词 / 单词↔单词关系图的纯构建（词形整词匹配、同句共现、同根同族、近义）与只读服务
 host/env.js         环境自检（bl / poppler / 工作区）、唯一子进程 runner（StringDecoder、进程树 kill）
-host/api.js         action 分发表 + HTTP 网关（校验、限流、错误码、脱敏）
+host/library.js     跨项目共享库：全局设置读写、有效根解析、状态/目录探测
+host/api.js         action 分发表 + HTTP 网关（校验、限流、错误码、脱敏）、有效根组装
 host/tools.js       两个 agent 工具的注册、schema、render
 client.js           单文件浏览器 bundle（见下方分区）
 locale/{zh,en}.json 插件页展示元数据（meta.title / meta.description），不是运行时 i18n
@@ -61,7 +65,7 @@ tests/              node --test（零依赖）
 §5 纯组件（弹窗、生词卡、PDF 页、按钮）
 §6 hooks（usePolling / useSelectionLookup / useTranscript / useGraphCanvas）
 §7 视图（转写面板、文稿、PDF、生词本、背记、图谱、环境自检卡）
-§8 ReaderPanel 组装
+§8 ReaderPanel 组装（含顶部「跨项目」开关与共享库警告条）
 §9 注册（locale / sidebarRightTabs / slots / 会话头按钮）
 ```
 
@@ -84,8 +88,8 @@ tests/              node --test（零依赖）
 
 成功：`200 { ok: true, value: any }`
 失败：`{ ok: false, code: string, message: string, params?: object }`
-状态码：400 `http/*`、403 `http/forbidden|http/origin`、404 `*/not-found`、409 `session/unavailable`、
-413 `*/too-large`、429 `http/rate-limited`、500 `internal`（对外只回脱敏文案）。
+状态码：400 `http/*`、403 `http/forbidden|http/origin`、404 `*/not-found`、409 `session/unavailable|library/busy`、
+413 `*/too-large`、429 `http/rate-limited`、500 `internal|library/settings-failed`（对外只回脱敏文案）。
 
 错误码（新增码必须实现方与消费方同时加）：
 
@@ -99,6 +103,7 @@ import/unsupported-format import/too-large import/empty
 lookup/failed vocab/invalid-entry vocab/not-found job/not-found job/failed
 analysis/disabled
 recall/invalid recall/not-found
+library/invalid library/unavailable library/busy library/settings-failed
 ```
 
 ### actions
@@ -106,6 +111,9 @@ recall/invalid recall/not-found
 | action | payload | value |
 |---|---|---|
 | `transcripts.list` | `{}` | `[{file,title,audio,createdAt,durationMs,speakers[],segments,model,imported?,pdf?}]` |
+| `transcripts.read` | `{file}` | `{text}`：原始文稿 JSON 文本；文件名继续走 `validateBaseFileName` |
+| `vocab.read` | `{}` | `{text}` 或 `{text:null}`：原始 `vocab/vocabulary.json` 文本 |
+| `pdf.page` | `{path}` | `{data}`：base64 PNG；只允许 `.dsh-english/pdfs/<uuid>/page-<n>.png` 且做工作区包含校验 |
 | `transcripts.merge` | `{file}` | `{file,before,after,changed}` |
 | `transcripts.import` | `{name, content?, contentBase64?}` | `{file,segments,pages}` |
 | `transcripts.delete` | `{file}` | `{file,deleted}` |
@@ -123,14 +131,16 @@ recall/invalid recall/not-found
 | `graph.overview`（新增） | `{}` | 只读关系图：`{version,generatedAt,summary,nodes[],links[]}`（字段见 `host/graph.js`）；不写盘、不调模型；`appears`=文稿↔单词（`count` 为整词出现次数、`origin`/`sample`），`cooccur`=同句共现，`morph`=同根/同族，`sense`=共享中文义项片段 |
 | `transcribe` | `{audio, speakers?, model?, language?}` | `{jobId,transcript}` |
 | `job` | `{id}` | `{jobId,state:'queued'|'running'|'done'|'failed',transcript?,error?,warnings?,segments?,speakers?,durationMs?,heartbeatAt?}`；未知 id 直接 404 + `job/not-found` |
-| `env.check`（新增） | `{}` | `{workspace:{root,writable,transcripts,vocab,recordings}, bl:{present,version?,authenticated?,message?}, pdf:{present,tool,message?}, warnings:string[]}` |
+| `env.check`（新增） | `{}` | `{workspace:{root,writable,transcripts,vocab,recordings}, bl:{present,version?,authenticated?,message?}, pdf:{present,tool,message?}, library:{enabled,root,workspaceRoot,usingShared,settingsPath,exists,writable?,directories?,warnings[]}, warnings:string[]}` |
+| `library.status` | `{}` | 与 `env.check#library` 相同（不 probe 时不带 `writable`/`directories`）；库缺失不报错 |
+| `library.set` | `{enabled:boolean}` | 写后最新的 library 状态；启用时共享根 = 当前会话工作区；有活动转写任务时 409 `library/busy` |
 
 ### agent 工具
 
 - `english_transcribe { audio, speakers?, model?, language? }` → `{ok,jobId,transcript,segments,speakers,durationMs,model,warnings,state,error?}`；
-  失败必须带可操作信息（bl 缺失/未登录时给安装或登录命令）。
+  `audio` 相对当前工作区或已开启的共享库，也可绝对路径；失败必须带可操作信息（bl 缺失/未登录时给安装或登录命令）。
 - 工具注册只接受静态 `timeoutMs`：注册时取默认值（`asr.toolTimeoutMinutes` 默认 32 分钟），工作区配置载入后更新已注册定义对象上的 `timeoutMs`（宿主每次调用读取该定义）。
-- `english_vocab { action: list|lookup|add|update|enrich|analyze|remove|export, ... }`；
+- `english_vocab { action: list|lookup|add|update|enrich|analyze|remove|export, ... }`（读取/写入当前工作区或已开启的共享库）；
   `analyze`（`id?`）：对比当前工作区全部文稿里该单词的用法，把其它义项（带 `example`/`source` 证据）追加进词条并写回，返回 `{analyzed,updated,added,skipped,failed,remaining,entries}`。
   `output.schema` 必须覆盖 render 实际读取的 `result/words/sentences/removed/updated/analyzed/added/skipped/failed/remaining/entries/total/pending/path/duplicate`。
 
@@ -156,8 +166,8 @@ recall/invalid recall/not-found
 
 ### 后台多义分析（行为契约）
 
-- 工作区活动 = 该工作区里走 `workspaceConfig` 的 HTTP action / agent 工具调用（统一记 `noteActivity`；`env.check` 与 `browse.list` 不经过该路径，因此不计活动）。最近 `analysis.idleMinutes` 内无活动才算空闲；面板隐藏（`document.hidden`）或无请求即视为“未在使用插件”。
-- 后台每 `15s` tick 一次：通过 `ctx.get('agents').list()` + `ctx.get('workingDirectory').get(session)` 枚举在线会话工作区，外加插件调用追踪过的根；只处理含 `vocab/vocabulary.json` 或 `.dsh-english/` 的目录（stub/headless 环境下 `get('agents')` 缺失则退化为仅追踪根）。
+- 有效根 = 共享库目录（开关打开时）或当前会话工作区；活动按 `noteActivity(workspaceRoot, effectiveRoot)` 记到有效根，同时追踪 workspaceRoot。最近 `analysis.idleMinutes` 内无活动才算空闲；面板隐藏（`document.hidden`）或无请求即视为“未在使用插件”。
+- 后台每 `15s` tick 一次：通过 `ctx.get('agents').list()` + `ctx.get('workingDirectory').get(session)` 枚举在线会话工作区，外加插件调用追踪过的 workspaceRoot；每个 workspaceRoot 经注入的 `resolveRoot` 映射到有效根并按有效根去重，再加载有效根的配置；共享库切换时 `analysis.reset()` 清空调度状态。只处理含 `vocab/vocabulary.json` 或 `.dsh-english/` 的目录（stub/headless 环境下 `get('agents')` 缺失则退化为仅追踪根）。
 - 每轮最多处理一个工作区的一批（`analysis.batchWords`），批间有 20s 间隔；没有剩余过期词后 10 分钟内不再重扫。`analysis.enabled=false` 或 `lookup.backend=off` 时不跑。
 - 过期判定：无 `entry.analysis`、`version` 不符、`fingerprint`（语料 + 词/词形 + 原始例句）变化；`failed` 需超过 `retryMinutes` 才重试。上下文 < 2 条时只写 `skipped`，不调用模型。
 - 只追加/补证据，不覆盖已有 `zh`；最多保留 8 条释义；单条失败写 `failed` 后继续下一条，不抛出到网关。插件卸载或 agent 工具 AbortSignal 取消不会写成失败；HTTP 网关目前不向 handler 传递取消信号。
@@ -169,7 +179,8 @@ recall/invalid recall/not-found
 - 纯逻辑（text/pdf/transcript/vocab/json-store/paths/config/asr 状态机/recall 掌握度调度/senses 多义合并/analysis 空闲调度/graph 关系构建与截断）必须有单测。
 - 图谱的上限与语义（MAX_WORDS / MAX_DOCUMENTS / MAX_SCAN_CHARS / MAX_APPEARS_PER_WORD / MAX_COOCCUR_PER_WORD、整词匹配、同句共现、同根停用词缀、近义片段）由 `tests/graph.test.mjs` 锁死；契约测试额外要求 `REQUIRED_GRAPH_KEYS`。
 - 义项合并规则由 `tests/text.test.mjs`（collapseMeanings / mergeMeaningPair）、`tests/vocab.test.mjs`（normalizeMeanings 写入折叠）与 `tests/senses.test.mjs`（mergeSenses 折叠与幂等）锁死；客户端展示副本必须保持同样的规则（改规则时三处一起改：host/text.js、client.js §3、对应测试）。
-- 契约测试：`client.js` 里出现的 action 名集合与 `host/api.js` 分发表一致；`client.js` 的 loader id 与 `package.json#name` 一致；`client.js` 的 zh / en 两套 i18n 字典必须完全等键；发布元数据（`package.json`、`whalepicks.json`、CHANGELOG 当前版本区段）一致。
+- 跨项目共享库：`tests/library.test.mjs` 锁设置读写、损坏/非法值回退、缺失根与写入失败；`tests/library-integration.test.mjs` 锁 A/B 有效根、读取/写入、关闭回退、缺库错误与 `library/busy`；`tests/analysis.test.mjs` 锁有效根去重与 `reset()`。
+- 契约测试：`client.js` 里出现的 action 名集合与 `host/api.js` 分发表一致；`client.js` 的 loader id 与 `package.json#name` 一致；`client.js` 的 zh / en 两套 i18n 字典必须完全等键，并包含 `REQUIRED_LIBRARY_KEYS`；发布元数据（`package.json`、`whalepicks.json`、CHANGELOG 当前版本区段）一致。
 
 ## 发布流程（维护者）
 
@@ -184,4 +195,5 @@ recall/invalid recall/not-found
 - 不引入构建步骤、TypeScript、打包器或运行时依赖。
 - 不改数据格式。
 - 不把 HTTP 接口改成 Typert Remote。
+- 不复制/移动共享库数据，不合并多个项目已有的文稿或生词本，不支持每个项目一个库或多个库并存。
 - 不收集任何遥测。

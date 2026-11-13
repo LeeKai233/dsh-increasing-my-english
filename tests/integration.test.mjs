@@ -64,6 +64,16 @@ function createStubContext(root) {
   return { ctx, tools, routes, disposers, llmCalls }
 }
 
+/** Keep the shared-library setting inside the test workspace, never the real DSH home. */
+function isolateDshHome(root) {
+  const saved = process.env.DSH_HOME
+  process.env.DSH_HOME = join(root, '.dsh-home')
+  return () => {
+    if (saved === undefined) delete process.env.DSH_HOME
+    else process.env.DSH_HOME = saved
+  }
+}
+
 function callHttp(handler, body, options = {}) {
   const text = typeof options.raw === 'string' ? options.raw : JSON.stringify(body)
   const req = new EventEmitter()
@@ -124,6 +134,7 @@ test('host integration over a stub context (no DSH process)', async (t) => {
   await mkdir(join(root, '.dsh-english'), { recursive: true })
   await writeFile(join(root, '.dsh-english', 'config.json'), JSON.stringify({ asr: { toolTimeoutMinutes: 45 }, blPath: 'C:\\evil\\bl.exe', someFutureKey: true }), 'utf8')
   const stub = createStubContext(root)
+  const restoreDshHome = isolateDshHome(root)
   apply(stub.ctx)
   t.after(async () => {
     for (const disposer of [...stub.disposers].reverse()) {
@@ -137,6 +148,7 @@ test('host integration over a stub context (no DSH process)', async (t) => {
       if (value === undefined) delete process.env[key]
       else process.env[key] = value
     }
+    restoreDshHome()
     await rm(root, { recursive: true, force: true })
     await rm(outside, { recursive: true, force: true })
   })
@@ -154,7 +166,10 @@ test('host integration over a stub context (no DSH process)', async (t) => {
     assert.equal(result.status, 200)
     assert.equal(result.json.ok, true)
     const value = result.json.value
-    assert.deepEqual(Object.keys(value).sort(), ['bl', 'pdf', 'warnings', 'workspace'])
+    assert.deepEqual(Object.keys(value).sort(), ['bl', 'library', 'pdf', 'warnings', 'workspace'])
+    assert.equal(value.library.enabled, false)
+    assert.equal(value.library.exists, false)
+    assert.equal(value.library.root, null)
     assert.equal(value.workspace.root, root)
     for (const key of ['writable', 'transcripts', 'vocab', 'recordings']) assert.equal(typeof value.workspace[key], 'boolean')
     assert.equal(value.workspace.writable, true)
@@ -185,6 +200,12 @@ test('host integration over a stub context (no DSH process)', async (t) => {
     assert.equal(listed.status, 200)
     assert.equal(listed.json.value.length, 1)
     assert.equal(listed.json.value[0].file, 'sample.json')
+    const read = await call({ action: 'transcripts.read', sessionId: 'session-test', payload: { file: 'sample.json' } })
+    assert.equal(read.status, 200)
+    assert.match(read.json.value.text, /Hello world/)
+    const readBad = await call({ action: 'transcripts.read', sessionId: 'session-test', payload: { file: '../evil.json' } })
+    assert.equal(readBad.status, 400)
+    assert.equal(readBad.json.code, 'transcript/invalid-name')
     const merged = await call({ action: 'transcripts.merge', sessionId: 'session-test', payload: { file: 'sample.json' } })
     assert.equal(merged.status, 200)
     assert.deepEqual(merged.json.value, { file: 'sample.json', before: 2, after: 2, changed: false })
@@ -196,6 +217,9 @@ test('host integration over a stub context (no DSH process)', async (t) => {
   })
 
   await t.test('vocab.add -> vocabulary.json + 生词本.md -> vocab.remove', async () => {
+    const emptyVocab = await call({ action: 'vocab.read', sessionId: 'session-test', payload: {} })
+    assert.equal(emptyVocab.status, 200)
+    assert.equal(emptyVocab.json.value.text, null)
     const added = await call({
       action: 'vocab.add',
       sessionId: 'session-test',
@@ -218,6 +242,9 @@ test('host integration over a stub context (no DSH process)', async (t) => {
     assert.equal(stored.words[0].word, 'example')
     const markdown = await readFile(join(root, 'vocab', '生词本.md'), 'utf8')
     assert.match(markdown, /example/)
+    const vocabText = await call({ action: 'vocab.read', sessionId: 'session-test', payload: {} })
+    assert.equal(vocabText.status, 200)
+    assert.match(vocabText.json.value.text, /example/)
     const removed = await call({ action: 'vocab.remove', sessionId: 'session-test', payload: { ids: [added.json.value.id] } })
     assert.equal(removed.status, 200)
     assert.equal(removed.json.value.removed, 1)
@@ -293,6 +320,21 @@ test('host integration over a stub context (no DSH process)', async (t) => {
     assert.equal(listed.json.ok, true)
   })
 
+  await t.test('pdf.page returns a rendered page and rejects traversal', async () => {
+    const id = randomUUID()
+    const directory = join(root, '.dsh-english', 'pdfs', id)
+    await mkdir(directory, { recursive: true })
+    const bytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a])
+    await writeFile(join(directory, 'page-01.png'), bytes)
+    const relativePath = '.dsh-english/pdfs/' + id + '/page-01.png'
+    const ok = await call({ action: 'pdf.page', sessionId: 'session-test', payload: { path: relativePath } })
+    assert.equal(ok.status, 200)
+    assert.equal(Buffer.from(ok.json.value.data, 'base64').toString('hex'), bytes.toString('hex'))
+    const bad = await call({ action: 'pdf.page', sessionId: 'session-test', payload: { path: '../evil.png' } })
+    assert.equal(bad.status, 400)
+    assert.equal(bad.json.code, 'path/invalid')
+  })
+
   await t.test('auth: missing header, non-loopback peer and foreign Origin are rejected', async () => {
     const missing = await call({ action: 'transcripts.list', sessionId: 'session-test', payload: {} }, {
       headers: { 'content-type': 'application/json' },
@@ -363,6 +405,7 @@ test('recall HTTP: overview / grade / reset over a stub context', async (t) => {
   const { localDateOf, addDays } = await import('../host/recall.js')
   const root = await mkdtemp(join(tmpdir(), 'english-recall-int-'))
   const stub = createStubContext(root)
+  const restoreDshHome = isolateDshHome(root)
   apply(stub.ctx)
   t.after(async () => {
     for (const disposer of [...stub.disposers].reverse()) {
@@ -372,6 +415,7 @@ test('recall HTTP: overview / grade / reset over a stub context', async (t) => {
         // best effort
       }
     }
+    restoreDshHome()
     await rm(root, { recursive: true, force: true })
   })
   const handler = stub.routes.get('/dsh-english/api')
@@ -597,6 +641,7 @@ test('recall HTTP: overview / grade / reset over a stub context', async (t) => {
 test('graph HTTP: overview exposes transcript-word and word-word relations', async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'english-graph-int-'))
   const stub = createStubContext(root)
+  const restoreDshHome = isolateDshHome(root)
   apply(stub.ctx)
   t.after(async () => {
     for (const disposer of [...stub.disposers].reverse()) {
@@ -606,6 +651,7 @@ test('graph HTTP: overview exposes transcript-word and word-word relations', asy
         // best effort
       }
     }
+    restoreDshHome()
     await rm(root, { recursive: true, force: true })
   })
   const handler = stub.routes.get('/dsh-english/api')

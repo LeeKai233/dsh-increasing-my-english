@@ -117,6 +117,15 @@ bl auth login --console
 
 ## 功能
 
+### 跨项目共享（顶部开关）
+
+- 面板顶部工具栏有一个「**跨项目**」开关，默认关闭。打开后，**当前项目成为共享库**：数据仍留在这个项目目录里，不复制、不搬移；其它项目打开同一面板会直接看到它的文稿、生词本、背记进度、查词缓存、录音与 PDF 页。
+- 关闭开关后，各项目立即回到自己的数据；共享库里的文件保持不变。换库方式：先关闭，再到目标项目重新打开。
+- 共享期间所有项目共用共享库的 `.dsh-english/config.json`（转写模型、查词后端等设置以它为准）；有转写任务进行中时不能切换；共享库目录不可用时数据操作会报错，但开关仍可关闭。
+- 开关保存在用户目录的 `.dsh/english-practice.json`（存在 `DSH_HOME` 时用 `DSH_HOME/english-practice.json`），内容为 `{ "version": 1, "sharedRoot": "<绝对路径>" }`；删除该文件等于关闭并回到各项目自己的数据。多个 DSH 实例同时写同一共享库为 best-effort。
+- 共享期间「转写录音」列的是共享库的 `recordings/`；要转写本项目里的音频，用「选择文件夹」或直接粘贴绝对路径。
+- 共享库项目不要删除或移动；共享库路径失效后，先关掉开关回到本项目数据，再修复或重新指定。
+
 ### 转写录音
 
 - 把音频放进工作区的 `recordings/`（mp3 / m4a / wav / aac / flac / ogg / opus / amr / wma / mp4 / webm）。
@@ -184,8 +193,8 @@ bl auth login --console
 ### 环境自检
 
 - 在**没有文稿的空状态**或打开「转写录音」面板时会出现「环境自检」卡（数据来自 `env.check`，不做本机探测）。卡片默认折叠，只有检测到问题时才自动展开一次；点标题可手动展开/收起。
-- 三个状态 chip：`bl`（正常 / 未安装 / 未登录，展开后显示版本号）、`PDF`（正常 / 未安装，即 Poppler）、`工作区`（正常 / 不可写）。
-- 展开后显示 `bl`、`PDF 工具 (Poppler)`、`工作区` 详情，`transcripts` / `vocab` / `recordings` 三个目录状态与可写性，「提示」（warnings）列表，以及「重新检测」按钮。
+- 状态 chip：`bl`（正常 / 未安装 / 未登录，展开后显示版本号）、`PDF`（正常 / 未安装，即 Poppler）、`工作区`（正常 / 不可写）；启用「跨项目」时再加一个 `共享库`（正常 / 不可用）。
+- 展开后显示 `bl`、`PDF 工具 (Poppler)`、`工作区` 详情，`transcripts` / `vocab` / `recordings` 三个目录状态与可写性；启用共享时还会显示共享库路径与同样的目录/可写性检查。「提示」（warnings）列表，以及「重新检测」按钮。
 - 命令按缺失项给出、可一键复制（不缺失就不显示）：`bl` 未安装 → `npm i -g bailian-cli --registry=https://registry.npmmirror.com`；`bl` 未登录 → `bl auth login --console`；Poppler 缺失 → `winget install -e --id oschwartz10612.Poppler`（Linux / macOS 用 `brew install poppler` / `sudo apt install poppler-utils`）。装好后点「重新检测」。注意：**Poppler 只影响 PDF 导入**——没装 Poppler 时转写与查词照常可用，但自检不会全绿（`PDF` chip 显示「未安装」）。
 
 ## 工作区数据布局
@@ -205,6 +214,8 @@ bl auth login --console
 ```
 
 数据格式为 `version: 1` 并保持冻结（只允许新增可选字段）；背记进度 `.dsh-english/recall.json` 是独立的新数据文件，同样为 `version: 1`。JSON 损坏时会备份成 `*.corrupt-<时间戳>` 再按默认值继续。
+
+开启「跨项目」开关后，以上目录都位于**共享库**（打开开关时所在的项目）；关闭后各项目重新使用自己的目录。共享库目录本身不会被复制或移动。
 
 ## 配置
 
@@ -291,10 +302,10 @@ bl auth login --console
 
 ## 助手工具
 
-- `english_transcribe { audio, speakers?, model?, language? }`：转写并等待完成，返回 `{ok,jobId,transcript,segments,speakers,durationMs,model,warnings,state,error?}`。`audio` 用工作区相对路径或绝对路径；失败时给出可操作信息（`bl` 缺失/未登录时附安装或登录命令）。
+- `english_transcribe { audio, speakers?, model?, language? }`：转写并等待完成，返回 `{ok,jobId,transcript,segments,speakers,durationMs,model,warnings,state,error?}`。`audio` 用当前工作区或共享库的相对路径，或绝对路径；失败时给出可操作信息（`bl` 缺失/未登录时附安装或登录命令）。
 - `english_vocab { action, ... }`：`action` 取 `list`（默认只列待补全条目）/ `lookup` / `add` / `update` / `enrich` / `analyze` / `remove` / `export`。
   - `list` 默认列 pending；`update` 用于助手自己补全音标/释义/例句翻译；`enrich` 按 id 重新查询词形与词源；`analyze` 对比全部文稿补全多义（可传 `id` 只分析一个词；不带 `id` 时每次最多分析 `analysis.batchWords` 个过期词，默认 2 个，按返回的 `remaining` 继续调用直到 0；返回 `{analyzed,updated,added,skipped,failed,remaining,entries}`）；`export` 重写 `vocab/生词本.md`。
-- 面板与助手走同一套 Host 实现：面板的动作（文稿列表、转写、查词、生词本等）走插件自建的 `POST /dsh-english/api`（只接受回环地址，要求 `x-english-practice: 1` 请求头；浏览器带 `Origin` 时必须为本地来源），文稿正文经宿主 workspaceFiles 接口读取；助手通过上面两个工具调用。
+- 面板与助手走同一套 Host 实现：面板的动作（文稿列表、转写、查词、生词本等）走插件自建的 `POST /dsh-english/api`（只接受回环地址，要求 `x-english-practice: 1` 请求头；浏览器带 `Origin` 时必须为本地来源），文稿正文、生词本 JSON 与 PDF 页图经插件自己的 `transcripts.read` / `vocab.read` / `pdf.page` 读取（共享库在别的项目时也能读）；助手通过上面两个工具调用。
 
 ## FAQ
 
@@ -317,7 +328,7 @@ bl auth login --console
 默认在插件空闲约 3 分钟后自动在后台跑，不需要打开面板；也可以在卡片上点「分析多义」或让助手调用 `action=analyze` 立即跑。它用的是和查词相同的后端（默认 DSH 当前模型，`lookup.backend = "bl"` 时走百炼文本模型），一次只分析有变化的词，语料没变不会重复调用；也可以在 `.dsh-english/config.json` 的 `analysis` 里停掉后台自动分析（`enabled: false`；手动「分析多义」仍可用）或调整 `idleMinutes` / `batchWords`。
 
 **插件、数据、隐私？**
-不收集任何遥测。文稿、生词本、缓存都在你当前工作区的普通文件里，可随时备份或搬走。HTTP 接口只监听回环地址、要求自定义请求头；浏览器带 `Origin` 时必须为本地来源。
+不收集任何遥测。文稿、生词本、缓存都在你当前工作区（或你主动开启的共享库项目）的普通文件里，可随时备份或搬走。HTTP 接口只监听回环地址、要求自定义请求头；浏览器带 `Origin` 时必须为本地来源。共享库开关只保存一个绝对路径在 `~/.dsh/english-practice.json`，不会上传任何内容。
 
 **卸载 / 换源？**
 桌面版的插件行由 Electron profile 独占：在插件页「移除」再「添加」即可，不要手工改插件 manifest；移除插件不会删你的工作区数据。

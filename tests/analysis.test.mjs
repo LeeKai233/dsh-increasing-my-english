@@ -474,6 +474,28 @@ test('noteActivity records activity and clears the pending run time', async () =
   assert.equal(after.lastActivityAt, state.now)
 })
 
+test('tick maps workspaces to one shared root and reset clears scheduler state', async () => {
+  const ctx = {
+    get(name) {
+      if (name === 'agents') return { list: () => [{ session: 'a' }, { session: 'b' }] }
+      if (name === 'workingDirectory') return { get: (session) => (session === 'a' ? 'A' : 'B') }
+      return undefined
+    },
+  }
+  const { state, service } = createHarness({
+    ctx,
+    serviceOptions: { resolveRoot: async () => ROOT },
+  })
+  state.advance(10 * 60 * 1000)
+  const result = await service.tick()
+  assert.equal(result.ran, true)
+  assert.equal(result.root, ROOT)
+  assert.equal(state.corpusLoads, 1)
+  assert.equal(state.lookups.length, 1)
+  service.reset()
+  assert.equal(service.status(ROOT).tracked, false)
+})
+
 test('tick tolerates stub contexts that expose no agent list or workspace getter', async () => {
   const ctx = {
     get(name) {

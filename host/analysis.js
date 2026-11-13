@@ -190,9 +190,12 @@ export function createAnalysisService(options = {}) {
     ? options.loadCorpus
     : (root, config) => loadCorpusFromDisk(store, root, config)
   const rootFilter = typeof options.rootFilter === 'function' ? options.rootFilter : defaultRootFilter
+  const resolveRoot = typeof options.resolveRoot === 'function' ? options.resolveRoot : async (root) => root
 
-  /** root -> { root, lastActivityAt?, lastRunAt?, nextRunAt? } */
+  /** effective root -> { root, lastActivityAt?, lastRunAt?, nextRunAt? } */
   const tracked = new Map()
+  /** workspace roots that have seen activity (resolved to an effective root each tick). */
+  const trackedWorkspaces = new Set()
   const lifecycle = new AbortController()
   let timer
   let running = false
@@ -389,7 +392,7 @@ export function createAnalysisService(options = {}) {
 
   /** Tracked roots plus every session workspace the host can currently resolve. */
   async function knownRoots() {
-    const roots = new Set(tracked.keys())
+    const roots = new Set(trackedWorkspaces)
     try {
       const agents = typeof ctx?.get === 'function' ? ctx.get('agents') : undefined
       let list = agents?.list?.()
@@ -418,39 +421,49 @@ export function createAnalysisService(options = {}) {
     if (disposed || running) return { ran: false }
     running = true
     try {
-      let roots
+      let workspaceRoots
       try {
-        roots = await knownRoots()
+        workspaceRoots = await knownRoots()
       } catch (error) {
         logger.warn?.('[english-practice] 多义分析调度失败：', messageOf(error))
         return { ran: false }
       }
-      for (const root of roots) {
+      const seen = new Set()
+      for (const workspaceRoot of workspaceRoots) {
         if (disposed) return { ran: false }
+        let root
         try {
-          const loaded = await configLoader.load(root)
+          root = await resolveRoot(workspaceRoot)
+        } catch {
+          root = undefined
+        }
+        const key = rootKey(root)
+        if (key === '' || seen.has(key)) continue
+        seen.add(key)
+        try {
+          const loaded = await configLoader.load(key)
           const config = loaded?.config
           if (!isRecord(config)) continue
           const analysisCfg = resolveAnalysisOptions(config)
           if (analysisCfg.enabled === false) continue
           if (config.lookup?.backend === 'off') continue
-          const state = stateOf(root)
+          const state = stateOf(key)
           if (state === undefined) continue
-          if (!isIdle(root, analysisCfg)) continue
+          if (!isIdle(key, analysisCfg)) continue
           const current = now()
           if (state.nextRunAt !== undefined && current < state.nextRunAt) continue
           let usable = false
           try {
-            usable = await rootFilter(root)
+            usable = await rootFilter(key)
           } catch {
             usable = false
           }
           if (usable !== true) continue
-          const result = await analyzeStale(root, config, { limit: analysisCfg.batchWords, background: true })
+          const result = await analyzeStale(key, config, { limit: analysisCfg.batchWords, background: true })
           if (disposed) return { ran: false }
           state.lastRunAt = now()
           state.nextRunAt = result.remaining > 0 ? now() + BACKGROUND_RETRY_MS : now() + BACKGROUND_RESCAN_MS
-          return { ran: true, root, result }
+          return { ran: true, root: key, result }
         } catch (error) {
           logger.warn?.('[english-practice] 多义分析调度失败：', messageOf(error))
         }
@@ -461,12 +474,24 @@ export function createAnalysisService(options = {}) {
     }
   }
 
-  /** Record user activity for a workspace: clears the pending background slot. */
-  function noteActivity(root) {
-    const state = stateOf(root)
+  /**
+   * Record user activity for a workspace: track the workspace, clear the
+   * pending background slot on its effective (possibly shared) root.
+   * The second argument keeps single-argument callers working.
+   */
+  function noteActivity(workspaceRoot, effectiveRoot) {
+    const workspace = rootKey(workspaceRoot)
+    if (workspace !== '') trackedWorkspaces.add(workspace)
+    const state = stateOf(effectiveRoot ?? workspaceRoot)
     if (state === undefined) return
     state.lastActivityAt = now()
     state.nextRunAt = undefined
+  }
+
+  /** Clear scheduler state when the shared library changes. */
+  function reset() {
+    tracked.clear()
+    trackedWorkspaces.clear()
   }
 
   /** Start the background interval (idempotent; the timer is unref'ed). */
@@ -506,5 +531,5 @@ export function createAnalysisService(options = {}) {
     }
   }
 
-  return { noteActivity, analyzeStale, analyzeEntry, tick, start, dispose, status }
+  return { noteActivity, analyzeStale, analyzeEntry, tick, start, reset, dispose, status }
 }

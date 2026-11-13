@@ -2,10 +2,10 @@
  * Poppler integration: pdftotext -bbox parsing, line grouping, availability
  * probing and page rendering into .dsh-english/pdfs/<uuid>/.
  */
-import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
+import { lstat, mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { join, relative } from 'node:path'
-import { DomainError, fail, normalizedPath, PDFS_REL, safeRemoveInside } from './paths.js'
+import { DomainError, fail, normalizedPath, PDFS_REL, resolveInWorkspace, safeRemoveInside, within } from './paths.js'
 import { stripBom } from './json-store.js'
 import { decodeXmlEntities } from './text.js'
 
@@ -166,4 +166,28 @@ export async function renderPdfPages(options) {
     console.error('[english-practice] PDF 渲染失败：', error)
     fail('pdf/render-failed', 'PDF 渲染失败，请确认文件是有效的 PDF')
   }
+}
+
+/** Only rendered page PNGs may be read back through the HTTP gateway. */
+const PDF_PAGE_PATH_RE = /^\.dsh-english\/pdfs\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/page-\d+\.png$/i
+
+/**
+ * Read one rendered PDF page as base64. Used by the client instead of the
+ * session-workspace file API so pages load when the shared library lives in
+ * another project.
+ */
+export async function readPdfPage(root, path) {
+  const relativePath = normalizedPath(String(path ?? ''))
+  if (!PDF_PAGE_PATH_RE.test(relativePath)) fail('path/invalid', 'PDF 页面路径无效')
+  const absolute = resolveInWorkspace(root, relativePath)
+  if (!within(join(root, PDFS_REL), absolute)) fail('path/invalid', 'PDF 页面路径无效')
+  const info = await lstat(absolute).catch(() => undefined)
+  if (info === undefined || info.isSymbolicLink() || !info.isFile()) fail('path/invalid', 'PDF 页面不存在')
+  let data
+  try {
+    data = await readFile(absolute)
+  } catch {
+    fail('path/invalid', 'PDF 页面不存在')
+  }
+  return { data: data.toString('base64') }
 }

@@ -221,7 +221,7 @@ export async function detectBl(runCommandFn, executables, options = {}) {
   return bl
 }
 
-async function probeWritable(path) {
+export async function probeWritable(path) {
   try {
     await mkdir(path, { recursive: true })
     const probe = join(path, '.probe-' + process.pid + '-' + Date.now() + '-' + Math.random().toString(36).slice(2))

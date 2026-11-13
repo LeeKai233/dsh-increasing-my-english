@@ -319,6 +319,12 @@ export function createVocabService(options) {
     return sanitize(detail.value)
   }
 
+  /** Raw vocabulary JSON for the client; null when the file does not exist. */
+  async function readText(root) {
+    const text = await store.readTextFile(vocabPath(root), undefined)
+    return { text: text === undefined ? null : text }
+  }
+
   /** Must be called while holding the vocabulary lock. */
   async function writeUnlocked(root, data) {
     await store.atomicWriteText(vocabPath(root), JSON.stringify(data, null, 2) + '\n')
@@ -461,5 +467,5 @@ export function createVocabService(options) {
     })
   }
 
-  return { read, add, update, remove, list, exportMarkdown, enrich, applyAnalysis, vocabPath, vocabMdPath }
+  return { read, readText, add, update, remove, list, exportMarkdown, enrich, applyAnalysis, vocabPath, vocabMdPath }
 }
